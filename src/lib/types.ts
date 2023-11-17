@@ -1,15 +1,30 @@
-import type { APIUser, APIEmoji, GatewayActivity, APIInteractionGuildMember, APIOverwrite, ChannelType } from "discord-api-types/v10";
+import type {
+	APIUser,
+	APIEmoji,
+	GatewayActivity,
+	APIInteractionGuildMember,
+	APIOverwrite,
+	ChannelType,
+	APIGuild,
+	GatewayReadyDispatch,
+	GatewayReadyDispatchData,
+	APIGuildTextChannel,
+	GuildTextChannelType,
+	APIGuildChannel,
+	APIThreadOnlyChannel,
+	APIGuildForumChannel,
+	APIGuildCategoryChannel,
+	APIVoiceChannelBase,
+} from "discord-api-types/v10";
 export * from "discord-api-types/v10";
 
-export interface ReadyEvent {
-	v: number;
+export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
 	user_settings: UserSettings;
 	user_guild_settings: UserGuildSetting[];
+	// is this part intentional?
 	user: APIUser;
 	sessions: Session[];
 	session_type: string;
-	session_id: string;
-	resume_gateway_url: string;
 	relationships: ClientRelationship[];
 	read_state: ReadState[];
 	private_channels: PrivateChannel[];
@@ -20,7 +35,7 @@ export interface ReadyEvent {
 	api_code_version: number;
 }
 
-export interface ConnectedAccount {
+interface ConnectedAccount {
 	visibility: number;
 	verified: boolean;
 	type: string;
@@ -34,58 +49,23 @@ export interface ConnectedAccount {
 	access_token?: string;
 }
 
-export interface ClientGuild {
-	max_members: number;
-	features: string[];
-	roles: Role[];
-	premium_progress_bar_enabled: boolean;
-	application_id: null;
-	nsfw_level: number;
-	premium_tier: number;
-	vanity_url_code: null | string;
+export interface ClientGuild extends APIGuild {
 	large: boolean;
-	preferred_locale: string;
-	premium_subscription_count: number;
 	nsfw: boolean;
-	splash: null | string;
-	banner: null | string;
-	id: string;
-	stickers: Sticker[];
-	owner_id: string;
-	hub_type: null;
-	system_channel_id: string;
 	stage_instances: any[];
-	rules_channel_id: null | string;
 	home_header: null;
 	channels: ClientChannel[];
 	threads: any[];
 	member_count: number;
-	mfa_level: number;
-	afk_channel_id: null | string;
 	voice_states: any[];
-	max_stage_video_channel_users: number;
 	presences: Presence[];
-	max_video_channel_users: number;
 	embedded_activities: any[];
-	emojis: APIEmoji[];
 	guild_hashes: GuildHashes;
 	application_command_counts: { [key: string]: number };
-	afk_timeout: number;
-	region: string;
-	explicit_content_filter: number;
-	verification_level: number;
-	discovery_splash: null | string;
-	default_message_notifications: number;
 	lazy: boolean;
-	joined_at: Date;
+	joined_at: string;
 	members: APIInteractionGuildMember[];
-	name: string;
-	description: null | string;
-	system_channel_flags: number;
-	public_updates_channel_id: null | string;
-	safety_alerts_channel_id: null | string;
 	guild_scheduled_events: GuildScheduledEvent[];
-	icon: null | string;
 }
 
 interface IconEmoji {
@@ -93,32 +73,20 @@ interface IconEmoji {
 	id: null;
 }
 
-export interface ClientChannel {
-	guild_id?: string;
+type ClientGuildTextChannel = APIGuildChannel<GuildTextChannelType> & ClientChannelBase;
+type ClientGuildVoiceChannel = APIVoiceChannelBase<ChannelType.GuildVoice | ChannelType.GuildStageVoice> & ClientChannelBase;
+type ClientGuildForumChannel = APIGuildForumChannel & ClientChannelBase;
+
+export type ClientChannel = APIGuildCategoryChannel | ClientGuildTextChannel | ClientGuildVoiceChannel | ClientGuildForumChannel;
+
+// this is what's undocumented in the discord api types library
+interface ClientChannelBase {
 	version: number;
-	type: number;
-	position: number;
-	permission_overwrites: APIOverwrite[];
-	name: string;
-	id: string;
-	flags: number;
-	topic?: null | string;
-	rate_limit_per_user?: number;
-	parent_id?: string;
+	/**
+	 * AI generated emojis for mobile lmao
+	 */
 	icon_emoji: IconEmoji;
-	nsfw?: boolean;
-	last_pin_timestamp?: Date;
-	last_message_id?: null | string;
-	user_limit?: number;
-	rtc_region?: null | string;
-	bitrate?: number;
 	template?: string;
-	default_sort_order?: null;
-	default_reaction_emoji?: null;
-	default_forum_layout?: number;
-	available_tags?: any[];
-	default_thread_rate_limit_per_user?: number;
-	video_quality_mode?: number;
 }
 
 interface GuildHashes {
@@ -173,7 +141,7 @@ export interface ClientUser extends APIUser {
 export type DiscordClients = "desktop" | "mobile" | "web";
 export type ClientStatuses = "online" | "idle" | "dnd" | "offline";
 
-export interface Presence {
+interface Presence {
 	user: {
 		id: string;
 	};
@@ -182,44 +150,6 @@ export interface Presence {
 		[key in DiscordClients]?: ClientStatuses;
 	};
 	activities: GatewayActivity[];
-}
-
-export interface PresenceUser {
-	id: string;
-}
-
-export interface Role {
-	version: number;
-	unicode_emoji: null | string;
-	tags: Tags;
-	position: number;
-	permissions: string;
-	name: string;
-	mentionable: boolean;
-	managed: boolean;
-	id: string;
-	icon: null | string;
-	hoist: boolean;
-	flags: number;
-	color: number;
-}
-
-export interface Tags {
-	bot_id?: string;
-	premium_subscriber?: null;
-}
-
-export interface Sticker {
-	version: number;
-	type: number;
-	tags: string;
-	name: string;
-	id: string;
-	guild_id: string;
-	format_type: number;
-	description: null | string;
-	available: boolean;
-	asset?: string;
 }
 
 export interface PrivateChannel {
@@ -243,7 +173,7 @@ export interface PrivateChannel {
 	managed?: boolean;
 }
 
-export interface ReadState {
+interface ReadState {
 	mention_count: number;
 	last_pin_timestamp: Date;
 	last_message_id: string;
@@ -268,7 +198,7 @@ export interface ClientRelationship {
 	user: APIUser;
 }
 
-export interface Session {
+interface Session {
 	status: string;
 	session_id: string;
 	client_info: {
@@ -279,7 +209,7 @@ export interface Session {
 	activities: any[];
 }
 
-export interface UserGuildSetting {
+interface UserGuildSetting {
 	version: number;
 	suppress_roles: boolean;
 	suppress_everyone: boolean;
@@ -295,7 +225,7 @@ export interface UserGuildSetting {
 	channel_overrides: ChannelOverride[];
 }
 
-export interface ChannelOverride {
+interface ChannelOverride {
 	muted: boolean;
 	mute_config: null;
 	message_notifications: number;
@@ -303,7 +233,7 @@ export interface ChannelOverride {
 	channel_id: string;
 }
 
-export interface UserSettings {
+interface UserSettings {
 	detect_platform_accounts: boolean;
 	animate_stickers: number;
 	inline_attachment_media: boolean;
@@ -340,14 +270,14 @@ export interface UserSettings {
 	theme: "dark" | "light";
 }
 
-export interface CustomStatus {
+interface CustomStatus {
 	text: string;
 	expires_at: null;
 	emoji_name: null | string;
 	emoji_id: null | string;
 }
 
-export interface GuildFolder {
+interface GuildFolder {
 	name: null;
 	id: number | null;
 	guild_ids: string[];

@@ -1,20 +1,7 @@
-import {
-	APIAttachment,
-	APIGuildTextChannel,
-	APIMessageReference,
-	APIOverwrite,
-	APIUser,
-	ChannelFlags,
-	ChannelType,
-	GuildTextChannelType,
-	Snowflake,
-	TextChannelType,
-	ThreadAutoArchiveDuration,
-} from "discord-api-types/v10";
-import { DiscordClientInit, DiscordUser } from "./DiscordClient";
+import { APIAttachment, APIMessageReference, APIOverwrite, ChannelFlags, ChannelType, Snowflake, TextChannelType, ThreadAutoArchiveDuration } from "discord-api-types/v10";
+import { DiscordGuild, DiscordUser } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./lib/stores";
 import { WritableStore } from "./lib/utils";
 
 export function generateNonce() {
@@ -25,9 +12,7 @@ interface DiscordChannelBaseProps {
 	flags?: ChannelFlags;
 }
 
-class _ExtendStore<T = any> extends WritableStore<T> {}
-
-class DiscordChannelBase<T extends DiscordChannelBaseProps> extends _ExtendStore<T> {
+class DiscordChannelBase<T extends DiscordChannelBaseProps> extends WritableStore<T> {
 	type!: ChannelType;
 	id!: Snowflake;
 
@@ -36,6 +21,19 @@ class DiscordChannelBase<T extends DiscordChannelBaseProps> extends _ExtendStore
 
 	constructor(props: T) {
 		super(props);
+	}
+}
+
+interface DiscordChannelCategoryProps extends DiscordChannelBaseProps {
+	name: string;
+	position: number;
+}
+
+export class DiscordGuildChannelCategory extends DiscordChannelBase<DiscordChannelCategoryProps> {
+	type = ChannelType.GuildCategory;
+
+	constructor(initialProps: DiscordChannelCategoryProps, public id: Snowflake) {
+		super({ name: initialProps.name, position: initialProps.position });
 	}
 }
 
@@ -50,7 +48,7 @@ interface CreateMessageParams {
 
 interface DiscordTextChannelProps extends DiscordChannelBaseProps {
 	last_message_id?: Snowflake | null;
-	last_pin_timestamp: string | null;
+	last_pin_timestamp?: string | null;
 }
 
 class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChannelBase<T> {
@@ -98,7 +96,7 @@ interface DiscordGuildTextChannelProps extends DiscordTextChannelProps {
 	position: number;
 	permission_overwrites: APIOverwrite[];
 
-	rate_limit_per_user: number;
+	rate_limit_per_user?: number;
 
 	nsfw: boolean;
 
@@ -124,20 +122,17 @@ interface DiscordGuildTextChannelProps extends DiscordTextChannelProps {
 	 *
 	 * ID of the parent channel for a thread
 	 */
-	parent_id: Snowflake | null;
+	parent_id?: Snowflake | null;
 }
 
-class DiscordGuildTextChannel<T extends DiscordGuildTextChannelProps> extends DiscordTextChannel<T> {
-	declare type: GuildTextChannelType;
-	guild_id!: Snowflake;
-
-	constructor(props: T) {
+type GuildTextChannelType = Exclude<TextChannelType, ChannelType.DM | ChannelType.GroupDM>;
+export class DiscordGuildTextChannel<R extends GuildTextChannelType, T extends DiscordGuildTextChannelProps = DiscordGuildTextChannelProps> extends DiscordTextChannel<T> {
+	constructor(props: T, public type: R, public guild: DiscordGuild, public id: Snowflake) {
 		super(props);
 	}
 }
 
 interface DiscordDMBaseProps extends DiscordTextChannelProps {}
-
 class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextChannel<T> {
 	recipients = new WritableStore<DiscordUser[]>([]);
 
@@ -176,7 +171,6 @@ interface DiscordGroupDMChannelProps extends DiscordDMBaseProps {
 	 */
 	managed?: boolean;
 }
-
 export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelProps> {
 	type = ChannelType.GroupDM as TextChannelType;
 

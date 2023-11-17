@@ -2,40 +2,13 @@ import DiscordRequest from "./DiscordRequest";
 import type { Config } from "./config";
 import Gateway from "./DiscordGateway";
 import Deferred from "./lib/Deffered";
-import { ReadyEvent, ClientRelationship, RelationshipType, PrivateChannel, ChannelType } from "./lib/types";
+import { ReadyEvent, ClientRelationship, RelationshipType, PrivateChannel, ChannelType, ClientGuild, ClientChannel } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
-import type { APIChannel, APIUser, Snowflake } from "discord-api-types/v10";
+import type { APIChannel, APIGuildCategoryChannel, APIGuildChannel, APIGuildTextChannel, APIUser, GuildTextChannelType, Snowflake } from "discord-api-types/v10";
 import { Writable, get, writable, Readable, derived, Updater, Subscriber, Invalidator, Unsubscriber } from "./lib/stores";
-import { DiscordDMChannel, DiscordGroupDMChannel } from "./DiscordChannels";
+import { DiscordDMChannel, DiscordGroupDMChannel, DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
 import { WritableStore } from "./lib/utils";
-
-export class DiscordUser extends WritableStore<APIUser> {
-	id: string;
-	constructor(initial: APIUser, private $relationships: Map<string, DiscordRelationship>) {
-		super(initial);
-		this.id = initial.id;
-	}
-
-	get relationship() {
-		return this.$relationships.get(this.id);
-	}
-}
-
-export class DiscordRelationship extends WritableStore<{
-	type: RelationshipType;
-	nickname: string | null;
-}> {
-	id: string;
-	constructor(initial: ClientRelationship, private $users: Map<string, DiscordUser>) {
-		super({ type: initial.type, nickname: initial.nickname });
-		this.id = initial.id;
-	}
-
-	get user() {
-		return this.$users.get(this.id);
-	}
-}
-
+import Logger from "./Logger";
 class Jar<T> extends Map<string, T> {
 	on: (event: string, listener: Function) => void;
 	once: (event: string, listener: Function) => void;
@@ -76,16 +49,91 @@ class Jar<T> extends Map<string, T> {
 	}
 }
 
+export class DiscordUser extends WritableStore<APIUser> {
+	id: string;
+	constructor(initial: APIUser, private $relationships: Jar<DiscordRelationship>) {
+		super(initial);
+		this.id = initial.id;
+	}
+
+	get relationship() {
+		return this.$relationships.get(this.id);
+	}
+}
+
+export class DiscordRelationship extends WritableStore<{
+	type: RelationshipType;
+	nickname: string | null;
+}> {
+	id: string;
+	constructor(initial: ClientRelationship, private $users: Jar<DiscordUser>) {
+		super({ type: initial.type, nickname: initial.nickname });
+		this.id = initial.id;
+	}
+
+	get user() {
+		return this.$users.get(this.id);
+	}
+}
+
+class ChannelsJar extends Jar<DiscordGuildTextChannel<GuildTextChannelType> | DiscordGuildChannelCategory> {}
+
+export class DiscordGuild extends WritableStore<Pick<ClientGuild, "name" | "icon" | "description" | "owner_id">> {
+	id: Snowflake;
+	channels = new ChannelsJar();
+	private logger = new Logger("DiscordGuild");
+
+	constructor(initial: ClientGuild) {
+		super({ name: initial.name, icon: initial.icon, description: initial.description, owner_id: initial.owner_id });
+		this.id = initial.id;
+	}
+
+	handleChannels(...args: ClientChannel[]) {
+		args.forEach((a) => {
+			const has = this.channels.get(a.id);
+			switch (a.type) {
+				case ChannelType.GuildCategory:
+					{
+						const props = {
+							name: a.name,
+							position: a.position,
+						};
+
+						if (!has) {
+							this.channels.set(a.id, new DiscordGuildChannelCategory(props, a.id));
+						} else (has as DiscordGuildChannelCategory).shallowSet(props);
+					}
+					break;
+				case ChannelType.GuildAnnouncement:
+				case ChannelType.GuildText:
+					{
+						if (!has) {
+							// TODO sigh...
+							this.channels.set(a.id, new DiscordGuildTextChannel(a as any, a.type, this, a.id));
+						} else (has as DiscordGuildTextChannel<ChannelType.GuildAnnouncement | ChannelType.GuildText>).shallowUpdate((prev) => ({ ...prev, ...a }));
+					}
+					break;
+
+				default:
+					this.logger.err("unsupported ChannelType:", ChannelType[a.type], a)();
+			}
+		});
+	}
+}
+
 class UsersJar extends Jar<DiscordUser> {}
 
 class RelationshipsJar extends Jar<DiscordRelationship> {}
 
 class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {}
 
+class GuildsJar extends Jar<DiscordGuild> {}
+
 export class DiscordClientInit {
 	users = new UsersJar();
 	relationships = new RelationshipsJar();
 	dms = new DMsJar();
+	guilds = new GuildsJar();
 
 	// that's deep
 	handleRelationships(...relationships: ClientRelationship[]) {
@@ -132,6 +180,12 @@ export class DiscordClientInit {
 		this.handleRelationships(...ready.relationships);
 
 		ready.relationships.forEach((u) => this.addUser(u.user));
+
+		ready.guilds.forEach((a) => {
+			const guild = new DiscordGuild(a);
+			guild.handleChannels(...a.channels);
+			this.guilds.add(a.id, guild);
+		});
 
 		const handleRelationship = (evt: ClientRelationship) => this.handleRelationships(evt);
 
