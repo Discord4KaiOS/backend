@@ -107,10 +107,25 @@ export class DiscordGuild extends WritableStore<Pick<ClientGuild, "name" | "icon
 				case ChannelType.GuildAnnouncement:
 				case ChannelType.GuildText:
 					{
+						const props = {
+							name: a.name,
+							last_pin_timestamp: a.last_pin_timestamp,
+							last_message_id: a.last_message_id,
+							position: a.position,
+							permission_overwrites: a.permission_overwrites!,
+							nsfw: a.nsfw!,
+						};
+
+						// to get rid of undefined shit without ruining stuff
+						for (const key in props) {
+							const _key = key as keyof typeof props;
+							const el = props[_key];
+							if (el === undefined) delete props[_key];
+						}
+
 						if (!has) {
-							// TODO sigh...
-							this.channels.set(a.id, new DiscordGuildTextChannel(a as any, a.type, this, a.id));
-						} else (has as DiscordGuildTextChannel<ChannelType.GuildAnnouncement | ChannelType.GuildText>).shallowUpdate((prev) => ({ ...prev, ...a }));
+							this.channels.set(a.id, new DiscordGuildTextChannel<ChannelType.GuildAnnouncement | ChannelType.GuildText>(props, a.type, this, a.id));
+						} else (has as DiscordGuildTextChannel<ChannelType.GuildAnnouncement | ChannelType.GuildText>).shallowUpdate((prev) => ({ ...prev, ...props }));
 					}
 					break;
 

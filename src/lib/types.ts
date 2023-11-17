@@ -73,7 +73,7 @@ interface IconEmoji {
 	id: null;
 }
 
-type ClientGuildTextChannel = APIGuildChannel<GuildTextChannelType> & ClientChannelBase;
+type ClientGuildTextChannel = APIGuildTextChannel<GuildTextChannelType> & ClientChannelBase;
 type ClientGuildVoiceChannel = APIVoiceChannelBase<ChannelType.GuildVoice | ChannelType.GuildStageVoice> & ClientChannelBase;
 type ClientGuildForumChannel = APIGuildForumChannel & ClientChannelBase;
 
