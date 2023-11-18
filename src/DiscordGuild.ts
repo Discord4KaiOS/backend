@@ -1,0 +1,254 @@
+import {
+	APIGuildMember,
+	APIOverwrite,
+	ChannelType,
+	GuildTextChannelType,
+	Snowflake,
+} from "discord-api-types/v10";
+import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
+import { DiscordUser } from "./DiscordClient";
+import { WritableStore, toVoid, Jar } from "./lib/utils";
+import { ClientChannel, ClientGuild } from "./lib/types";
+import DiscordRequest from "./DiscordRequest";
+import Logger from "./Logger";
+import { Config } from "./config";
+import Gateway from "./DiscordGateway";
+
+export const PermissionFlagsBits = {
+	CREATE_INSTANT_INVITE: 1,
+	KICK_MEMBERS: 2,
+	BAN_MEMBERS: 4,
+	ADMINISTRATOR: 8,
+	MANAGE_CHANNELS: 16,
+	MANAGE_GUILD: 32,
+	ADD_REACTIONS: 64,
+	VIEW_AUDIT_LOG: 128,
+	PRIORITY_SPEAKER: 256,
+	STREAM: 512,
+	VIEW_CHANNEL: 1024,
+	SEND_MESSAGES: 2048,
+	SEND_TTS_MESSAGES: 4096,
+	MANAGE_MESSAGES: 8192,
+	EMBED_LINKS: 16384,
+	ATTACH_FILES: 32768,
+	READ_MESSAGE_HISTORY: 65536,
+	MENTION_EVERYONE: 131072,
+	USE_EXTERNAL_EMOJIS: 262144,
+	VIEW_GUILD_INSIGHTS: 524288,
+	CONNECT: 1048576,
+	SPEAK: 2097152,
+	MUTE_MEMBERS: 4194304,
+	DEAFEN_MEMBERS: 8388608,
+	MOVE_MEMBERS: 16777216,
+	USE_VAD: 33554432,
+	CHANGE_NICKNAME: 67108864,
+	MANAGE_NICKNAMES: 134217728,
+	MANAGE_ROLES: 268435456,
+	MANAGE_WEBHOOKS: 536870912,
+	MANAGE_EMOJIS: 1073741824,
+};
+
+export class DiscordServerProfile extends WritableStore<
+	Pick<
+		APIGuildMember,
+		| "avatar"
+		| "deaf"
+		| "mute"
+		| "nick"
+		| "roles"
+		| "communication_disabled_until"
+		| "pending"
+		| "premium_since"
+	>
+> {
+	constructor(public $: APIGuildMember, public $guild: DiscordGuild, public user: DiscordUser) {
+		super($);
+	}
+}
+
+type RoleAccess = Partial<Record<keyof typeof PermissionFlagsBits, boolean>>;
+
+type ChannelsJarItems = DiscordGuildTextChannel<GuildTextChannelType> | DiscordGuildChannelCategory;
+
+class ChannelsJar extends Jar<ChannelsJarItems> {
+	constructor(public guild: DiscordGuild) {
+		super();
+	}
+
+	sorted(includeHidden = false) {
+		const list = this.list();
+
+		const position = (a: ChannelsJarItems, b: ChannelsJarItems) =>
+			a?.value.position - b?.value.position;
+
+		list.sort(position);
+
+		const map = new Map<string | null, typeof list>([[null, []]]);
+
+		// assign the categories to their respective parent_id
+		list.forEach((e) => {
+			if (e.type === ChannelType.GuildCategory) {
+				map.set(e.id, [e]);
+			}
+		});
+
+		list.forEach((e) => {
+			if (e instanceof DiscordGuildChannelCategory) return;
+
+			if (includeHidden || e.roleAccess().VIEW_CHANNEL !== false) {
+				switch (e.type) {
+					case ChannelType.GuildText:
+					case ChannelType.GuildAnnouncement:
+						const parent = map.get(e.value.parent_id || null);
+						(parent || map.get(null)!).push(e);
+						break;
+				}
+			}
+		});
+
+		return [...map.values()].sort(([a], [b]) => position(a, b)).flat();
+	}
+}
+
+export class DiscordGuild extends WritableStore<
+	Pick<ClientGuild, "name" | "icon" | "description" | "owner_id" | "roles">
+> {
+	id: Snowflake;
+	channels = new ChannelsJar(this);
+	private logger = new Logger("DiscordGuild");
+	members = new Set<DiscordServerProfile>();
+
+	constructor(
+		public $: ClientGuild,
+		public Request: DiscordRequest,
+		public Gateway: Gateway,
+		public $users: Jar<DiscordUser>,
+		public config: Config
+	) {
+		super({
+			name: $.name,
+			icon: $.icon,
+			description: $.description,
+			owner_id: $.owner_id,
+			roles: $.roles,
+		});
+		this.id = $.id;
+	}
+
+	parseRoleAccess(overwrites: APIOverwrite[] = []) {
+		const rej = new Error("Gateway not initialized properly!");
+
+		let obj: RoleAccess = {};
+
+		const user_id = this.config.user_id;
+		if (!user_id) throw rej;
+
+		const roles = this.value.roles;
+		const isOwner = this.value.owner_id === user_id;
+
+		const profileRoles = this.$users
+			.get(user_id)!
+			.profiles.get(this.id)!
+			.value.roles.concat(user_id);
+
+		if (!roles || !profileRoles) throw rej;
+
+		let everyone_id: string | null = null;
+
+		if (roles.length) {
+			[...roles]
+				.sort((a, b) => a.position - b.position)
+				.filter((o) => {
+					const isEveryone = o.position === 0;
+					if (isEveryone) everyone_id = o.id;
+
+					return profileRoles.includes(o.id) || isEveryone;
+				})
+				.map((o) => o.permissions)
+				.forEach((perms) => {
+					Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
+						if ((num & +perms) === num) obj[perm as keyof typeof PermissionFlagsBits] = true;
+					});
+				});
+		}
+
+		if (obj.ADMINISTRATOR === true || isOwner) {
+			Object.keys(PermissionFlagsBits).forEach((perm) => {
+				obj[perm as keyof typeof PermissionFlagsBits] = true;
+			});
+
+			return obj;
+		}
+
+		const _overwrites = [...overwrites];
+
+		if (everyone_id) {
+			const everyone = _overwrites.findIndex((o) => o.id == everyone_id);
+			if (everyone != -1) {
+				_overwrites.unshift(_overwrites.splice(everyone, 1)[0]);
+				profileRoles.unshift(everyone_id);
+			}
+		}
+
+		_overwrites.forEach((o) => {
+			if (profileRoles.includes(o.id)) {
+				Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
+					if ((+o.deny & num) === num) obj[perm as keyof typeof PermissionFlagsBits] = false;
+					if ((+o.allow & num) === num) obj[perm as keyof typeof PermissionFlagsBits] = true;
+				});
+			}
+		});
+
+		return obj;
+	}
+
+	handleChannels(...args: ClientChannel[]) {
+		args.forEach((a) => {
+			const has = this.channels.get(a.id);
+			switch (a.type) {
+				case ChannelType.GuildCategory:
+					{
+						const props = {
+							name: a.name,
+							position: a.position,
+						};
+
+						if (!has) {
+							this.channels.set(a.id, new DiscordGuildChannelCategory(props, a.id, this));
+						} else (has as DiscordGuildChannelCategory).shallowSet(props);
+					}
+					break;
+				case ChannelType.GuildAnnouncement:
+				case ChannelType.GuildText:
+					{
+						const props = toVoid({
+							name: a.name,
+							last_pin_timestamp: a.last_pin_timestamp,
+							last_message_id: a.last_message_id,
+							position: a.position,
+							permission_overwrites: a.permission_overwrites!,
+							nsfw: a.nsfw!,
+							parent_id: a.parent_id,
+							topic: a.topic,
+							rate_limit_per_user: a.rate_limit_per_user,
+						});
+
+						// this looks gross lmao
+						type _channelType = typeof a.type;
+						type _has = DiscordGuildTextChannel<_channelType>;
+
+						if (!has) {
+							this.channels.set(
+								a.id,
+								new DiscordGuildTextChannel<_channelType>(props, a.type, this, a.id)
+							);
+						} else (has as _has).deepUpdate((prev) => ({ ...prev, ...props }));
+					}
+					break;
+
+				default:
+					this.logger.err("unsupported ChannelType:", ChannelType[a.type], a)();
+			}
+		});
+	}
+}

@@ -2,63 +2,66 @@ import DiscordRequest from "./DiscordRequest";
 import type { Config } from "./config";
 import Gateway from "./DiscordGateway";
 import Deferred from "./lib/Deffered";
-import { ReadyEvent, ClientRelationship, RelationshipType, PrivateChannel, ChannelType, ClientGuild, ClientChannel } from "./lib/types";
+import {
+	ReadyEvent,
+	ClientRelationship,
+	RelationshipType,
+	PrivateChannel,
+	ChannelType,
+	ClientChannel,
+} from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
-import type { APIChannel, APIGuildCategoryChannel, APIGuildChannel, APIGuildTextChannel, APIUser, GuildTextChannelType, Snowflake } from "discord-api-types/v10";
-import { Writable, get, writable, Readable, derived, Updater, Subscriber, Invalidator, Unsubscriber } from "./lib/stores";
-import { DiscordDMChannel, DiscordGroupDMChannel, DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
-import { WritableStore } from "./lib/utils";
+import type {
+	APIChannel,
+	APIGuildMember,
+	APIGuildTextChannel,
+	APIUser,
+	GuildTextChannelType,
+	Snowflake,
+	TextChannelType,
+} from "discord-api-types/v10";
+import { Unsubscriber } from "./lib/stores";
+import {
+	DiscordDMChannel,
+	DiscordGroupDMChannel,
+	DiscordGuildChannelCategory,
+	DiscordGuildTextChannel,
+} from "./DiscordChannels";
+import { WritableStore, Jar } from "./lib/utils";
+import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
-class Jar<T> extends Map<string, T> {
-	on: (event: string, listener: Function) => void;
-	once: (event: string, listener: Function) => void;
-	off: (event: string, listener: Function) => void;
-	emit: (event: string, ...args: any[]) => void;
-	offAll: (event?: string | undefined) => void;
-	subscribe: (event: string, listener: Function) => Unsubscriber;
-	constructor() {
+
+class ServerProfilesJar extends Jar<DiscordServerProfile> {
+	constructor(public $user: DiscordUser) {
 		super();
-
-		const evtM = new EventEmitter();
-		this.on = evtM.on.bind(evtM);
-		this.once = evtM.once.bind(evtM);
-		this.off = evtM.off.bind(evtM);
-		this.emit = evtM.emit.bind(evtM);
-		this.offAll = evtM.offAll.bind(evtM);
-		this.subscribe = evtM.subscribe.bind(evtM);
 	}
-
-	set(key: string, value: T) {
-		super.set(key, value);
-		this.emit("update", key, value);
-		return this;
-	}
-
-	add(key: string, value: T) {
-		return this.set(key, value);
-	}
-
-	delete(key: string): boolean {
-		const result = super.delete(key);
-		this.emit("update", key);
-		return result;
-	}
-
-	list() {
-		return [...super.values()];
+	insert(profile: APIGuildMember, guild: DiscordGuild) {
+		const has = this.get(guild.id);
+		if (has) {
+			const updater = (p: DiscordServerProfile["value"]) => ({ ...p, ...profile });
+			// roles is the only part that needs to be recursively checked
+			if (profile.roles) has.deepUpdate(updater);
+			else has.shallowUpdate(updater);
+		} else {
+			const _profile = new DiscordServerProfile(profile, guild, this.$user);
+			this.set(guild.id, _profile);
+			return _profile;
+		}
+		return has;
 	}
 }
-
 export class DiscordUser extends WritableStore<APIUser> {
 	id: string;
-	constructor(initial: APIUser, private $relationships: Jar<DiscordRelationship>) {
-		super(initial);
-		this.id = initial.id;
+	constructor(public $: APIUser, private $relationships: Jar<DiscordRelationship>) {
+		super($);
+		this.id = $.id;
 	}
 
 	get relationship() {
 		return this.$relationships.get(this.id);
 	}
+
+	profiles = new ServerProfilesJar(this);
 }
 
 export class DiscordRelationship extends WritableStore<{
@@ -76,79 +79,29 @@ export class DiscordRelationship extends WritableStore<{
 	}
 }
 
-class ChannelsJar extends Jar<DiscordGuildTextChannel<GuildTextChannelType> | DiscordGuildChannelCategory> {}
-
-export class DiscordGuild extends WritableStore<Pick<ClientGuild, "name" | "icon" | "description" | "owner_id">> {
-	id: Snowflake;
-	channels = new ChannelsJar();
-	private logger = new Logger("DiscordGuild");
-
-	constructor(initial: ClientGuild) {
-		super({ name: initial.name, icon: initial.icon, description: initial.description, owner_id: initial.owner_id });
-		this.id = initial.id;
-	}
-
-	handleChannels(...args: ClientChannel[]) {
-		args.forEach((a) => {
-			const has = this.channels.get(a.id);
-			switch (a.type) {
-				case ChannelType.GuildCategory:
-					{
-						const props = {
-							name: a.name,
-							position: a.position,
-						};
-
-						if (!has) {
-							this.channels.set(a.id, new DiscordGuildChannelCategory(props, a.id));
-						} else (has as DiscordGuildChannelCategory).shallowSet(props);
-					}
-					break;
-				case ChannelType.GuildAnnouncement:
-				case ChannelType.GuildText:
-					{
-						const props = {
-							name: a.name,
-							last_pin_timestamp: a.last_pin_timestamp,
-							last_message_id: a.last_message_id,
-							position: a.position,
-							permission_overwrites: a.permission_overwrites!,
-							nsfw: a.nsfw!,
-						};
-
-						// to get rid of undefined shit without ruining stuff
-						for (const key in props) {
-							const _key = key as keyof typeof props;
-							const el = props[_key];
-							if (el === undefined) delete props[_key];
-						}
-
-						if (!has) {
-							this.channels.set(a.id, new DiscordGuildTextChannel<ChannelType.GuildAnnouncement | ChannelType.GuildText>(props, a.type, this, a.id));
-						} else (has as DiscordGuildTextChannel<ChannelType.GuildAnnouncement | ChannelType.GuildText>).shallowUpdate((prev) => ({ ...prev, ...props }));
-					}
-					break;
-
-				default:
-					this.logger.err("unsupported ChannelType:", ChannelType[a.type], a)();
-			}
-		});
-	}
-}
-
 class UsersJar extends Jar<DiscordUser> {}
 
 class RelationshipsJar extends Jar<DiscordRelationship> {}
 
 class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {}
 
-class GuildsJar extends Jar<DiscordGuild> {}
+class GuildsJar extends Jar<DiscordGuild> {
+	findChannelById(id: Snowflake) {
+		let found:
+			| DiscordGuildChannelCategory
+			| DiscordGuildTextChannel<GuildTextChannelType>
+			| undefined;
+		this.list().find((a) => (found = a.channels.get(id)));
+		return found;
+	}
+}
 
 export class DiscordClientInit {
 	users = new UsersJar();
 	relationships = new RelationshipsJar();
 	dms = new DMsJar();
 	guilds = new GuildsJar();
+	private logger = new Logger("DiscordClientInit");
 
 	// that's deep
 	handleRelationships(...relationships: ClientRelationship[]) {
@@ -189,17 +142,30 @@ export class DiscordClientInit {
 		});
 	}
 
-	constructor(ready: ReadyEvent, public Gateway: Gateway, public Request: DiscordRequest, public config: Config) {
+	constructor(
+		ready: ReadyEvent,
+		public Gateway: Gateway,
+		public Request: DiscordRequest,
+		public config: Config
+	) {
 		if (!config.client) throw Error("DiscordClient not initialized!");
 
 		this.handleRelationships(...ready.relationships);
 
+		config.user_id = ready.user.id;
+		this.addUser(ready.user);
+
 		ready.relationships.forEach((u) => this.addUser(u.user));
 
 		ready.guilds.forEach((a) => {
-			const guild = new DiscordGuild(a);
+			const guild = new DiscordGuild(a, this.Request, this.Gateway, this.users, config);
 			guild.handleChannels(...a.channels);
 			this.guilds.add(a.id, guild);
+			a.members.forEach((m) => {
+				const user = this.addUser(m.user);
+				const profile = user.profiles.insert(m, guild);
+				guild.members.add(profile);
+			});
 		});
 
 		const handleRelationship = (evt: ClientRelationship) => this.handleRelationships(evt);
@@ -213,27 +179,62 @@ export class DiscordClientInit {
 		console.log(ready);
 
 		this.handleDMChannels(...ready.private_channels);
-		Gateway.on("t:channel_create", (channel: APIChannel) => {
+
+		const handleChannels = (channel: APIChannel) => {
 			switch (channel.type) {
 				case ChannelType.DM:
 				case ChannelType.GroupDM:
 					this.handleDMChannels(channel);
 					break;
+				case ChannelType.GuildCategory:
+				case ChannelType.GuildText:
+				case ChannelType.GuildAnnouncement:
+					const _channel = channel as APIGuildTextChannel<GuildTextChannelType>;
+
+					let guild_id = _channel.guild_id;
+
+					// if for some reason this is missing
+					if (!guild_id) {
+						guild_id = this.guilds.findChannelById(_channel.id)?.guild.id;
+					}
+
+					if (!guild_id) {
+						this.logger.err("guild_id was not provided by APIChannel", _channel);
+						return;
+					}
+
+					this.guilds.get(guild_id)?.handleChannels(channel as ClientChannel);
+
+					break;
 			}
-		});
+		};
+
+		Gateway.on("t:channel_create", handleChannels);
+		Gateway.on("t:channel_update", handleChannels);
 		Gateway.on("t:channel_delete", (channel: APIChannel) => {
 			switch (channel.type) {
 				case ChannelType.DM:
 				case ChannelType.GroupDM:
 					this.dms.delete(channel.id);
 					break;
-			}
-		});
-		Gateway.on("t:channel_update", (channel: APIChannel) => {
-			switch (channel.type) {
-				case ChannelType.DM:
-				case ChannelType.GroupDM:
-					this.handleDMChannels(channel);
+				case ChannelType.GuildCategory:
+				case ChannelType.GuildText:
+				case ChannelType.GuildAnnouncement:
+					const _channel = channel as APIGuildTextChannel<GuildTextChannelType>;
+
+					let guild_id = _channel.guild_id;
+
+					// if for some reason this is missing
+					if (!guild_id) {
+						guild_id = this.guilds.findChannelById(_channel.id)?.guild.id;
+					}
+
+					if (!guild_id) {
+						this.logger.err("guild_id was not provided by APIChannel", _channel);
+						return;
+					}
+
+					this.guilds.get(guild_id)?.channels.delete(_channel.id);
 					break;
 			}
 		});
@@ -242,11 +243,14 @@ export class DiscordClientInit {
 		Gateway.on("t:channel_recipient_add", (evt: { channel_id: Snowflake; user: APIUser }) => {
 			this.addUser(evt.user);
 			const dm = this.dms.get(evt.channel_id) as DiscordGroupDMChannel;
-			dm.recipients.shallowUpdate((m) => m.concat(this.users.get(evt.user.id)!));
+			const user = this.users.get(evt.user.id)!;
+
+			dm.recipients.shallowUpdate((m) => m.concat(user));
 		});
 		Gateway.on("t:channel_recipient_remove", (evt: { channel_id: Snowflake; user: APIUser }) => {
 			const dm = this.dms.get(evt.channel_id) as DiscordGroupDMChannel;
 			const user = this.users.get(evt.user.id)!;
+
 			dm.recipients.shallowUpdate((m) => m.filter((e) => e !== user));
 		});
 	}
@@ -255,8 +259,11 @@ export class DiscordClientInit {
 		const has = this.users.get(user.id);
 		has?.shallowSet(user);
 		if (!has) {
-			this.users.set(user.id, new DiscordUser(user, this.relationships));
+			const _user = new DiscordUser(user, this.relationships);
+			this.users.set(user.id, _user);
+			return _user;
 		}
+		return has;
 	}
 }
 

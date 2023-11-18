@@ -182,7 +182,7 @@ export default class Gateway extends EventEmitter {
 		ws.addEventListener("close", () => {
 			this.ws = undefined;
 			this.close();
-			console.error("Discord gateway closed!");
+			this.logger.err("Discord gateway closed!")();
 			this.emit("close");
 		});
 	}

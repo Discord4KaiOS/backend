@@ -1,8 +1,18 @@
-import { APIAttachment, APIMessageReference, APIOverwrite, ChannelFlags, ChannelType, Snowflake, TextChannelType, ThreadAutoArchiveDuration } from "discord-api-types/v10";
-import { DiscordGuild, DiscordUser } from "./DiscordClient";
+import {
+	APIAttachment,
+	APIMessageReference,
+	APIOverwrite,
+	ChannelFlags,
+	ChannelType,
+	Snowflake,
+	TextChannelType,
+	ThreadAutoArchiveDuration,
+} from "discord-api-types/v10";
+import { DiscordUser } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { WritableStore } from "./lib/utils";
+import { DiscordGuild } from "./DiscordGuild";
 
 export function generateNonce() {
 	return String(Date.now() * 512 * 1024);
@@ -32,7 +42,11 @@ interface DiscordChannelCategoryProps extends DiscordChannelBaseProps {
 export class DiscordGuildChannelCategory extends DiscordChannelBase<DiscordChannelCategoryProps> {
 	type = ChannelType.GuildCategory;
 
-	constructor(initialProps: DiscordChannelCategoryProps, public id: Snowflake) {
+	constructor(
+		initialProps: DiscordChannelCategoryProps,
+		public id: Snowflake,
+		public guild: DiscordGuild
+	) {
 		super({ name: initialProps.name, position: initialProps.position });
 	}
 }
@@ -58,7 +72,11 @@ class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChann
 		super(props);
 	}
 
-	sendMessage(message: string = "", opts: Partial<CreateMessageParams> = {}, attachments?: File[] | Blob[]) {
+	sendMessage(
+		message: string = "",
+		opts: Partial<CreateMessageParams> = {},
+		attachments?: File[] | Blob[]
+	) {
 		if (!message && !attachments) throw new Error("Message or attachments must be provided");
 
 		const obj: CreateMessageParams = {
@@ -126,9 +144,18 @@ interface DiscordGuildTextChannelProps extends DiscordTextChannelProps {
 }
 
 type GuildTextChannelType = Exclude<TextChannelType, ChannelType.DM | ChannelType.GroupDM>;
-export class DiscordGuildTextChannel<R extends GuildTextChannelType, T extends DiscordGuildTextChannelProps = DiscordGuildTextChannelProps> extends DiscordTextChannel<T> {
+export class DiscordGuildTextChannel<
+	R extends GuildTextChannelType,
+	T extends DiscordGuildTextChannelProps = DiscordGuildTextChannelProps
+> extends DiscordTextChannel<T> {
 	constructor(props: T, public type: R, public guild: DiscordGuild, public id: Snowflake) {
 		super(props);
+		this.Request = guild.Request;
+		this.Gateway = guild.Gateway;
+	}
+
+	roleAccess() {
+		return this.guild.parseRoleAccess(this.value.permission_overwrites);
 	}
 }
 
@@ -144,7 +171,12 @@ class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextChannel<T> 
 export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	type = ChannelType.DM as TextChannelType;
 
-	constructor(initialProps: Partial<DiscordDMBaseProps>, public id: Snowflake, public Request: DiscordRequest, public Gateway: Gateway) {
+	constructor(
+		initialProps: Partial<DiscordDMBaseProps>,
+		public id: Snowflake,
+		public Request: DiscordRequest,
+		public Gateway: Gateway
+	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 	}
 }
@@ -174,7 +206,12 @@ interface DiscordGroupDMChannelProps extends DiscordDMBaseProps {
 export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelProps> {
 	type = ChannelType.GroupDM as TextChannelType;
 
-	constructor(initialProps: Partial<DiscordGroupDMChannelProps>, public id: Snowflake, public Request: DiscordRequest, public Gateway: Gateway) {
+	constructor(
+		initialProps: Partial<DiscordGroupDMChannelProps>,
+		public id: Snowflake,
+		public Request: DiscordRequest,
+		public Gateway: Gateway
+	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 	}
 }
