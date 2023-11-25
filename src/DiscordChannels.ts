@@ -174,10 +174,12 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	constructor(
 		initialProps: Partial<DiscordDMBaseProps>,
 		public id: Snowflake,
+		recipients: DiscordUser[],
 		public Request: DiscordRequest,
 		public Gateway: Gateway
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
+		this.recipients.set(recipients);
 	}
 }
 
@@ -209,9 +211,11 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 	constructor(
 		initialProps: Partial<DiscordGroupDMChannelProps>,
 		public id: Snowflake,
+		recipients: DiscordUser[],
 		public Request: DiscordRequest,
 		public Gateway: Gateway
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
+		this.recipients.set(recipients);
 	}
 }

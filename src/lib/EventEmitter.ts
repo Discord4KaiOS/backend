@@ -1,7 +1,10 @@
+import Logger from "../Logger";
+
 export type Unsubscriber = () => void;
 
 export default class EventEmitter {
 	private _events = new Map<string, Set<Function>>();
+	static logger = new Logger("EventEmitter");
 
 	on(event: string, listener: Function): void {
 		this._events.set(event, (this._events.get(event) || new Set()).add(listener));
@@ -30,7 +33,22 @@ export default class EventEmitter {
 	}
 
 	emit(event: string, ...args: any[]) {
-		this._events.get("*")?.forEach((listener) => listener(event, ...args));
-		this._events.get(event)?.forEach((listener) => listener(...args));
+		const err = (e: any) => {
+			EventEmitter.logger.err("unhandled error in event listener", e);
+		};
+		this._events.get("*")?.forEach((listener) => {
+			try {
+				listener(event, ...args);
+			} catch (e) {
+				err(e);
+			}
+		});
+		this._events.get(event)?.forEach((listener) => {
+			try {
+				listener(...args);
+			} catch (e) {
+				err(e);
+			}
+		});
 	}
 }

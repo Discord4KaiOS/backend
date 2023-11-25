@@ -7,20 +7,19 @@ import {
 	ClientRelationship,
 	RelationshipType,
 	PrivateChannel,
-	ChannelType,
 	ClientChannel,
+	ClientUserGuildSetting,
 } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
-import type {
+import {
 	APIChannel,
 	APIGuildMember,
 	APIGuildTextChannel,
 	APIUser,
 	GuildTextChannelType,
 	Snowflake,
-	TextChannelType,
+	ChannelType,
 } from "discord-api-types/v10";
-import { Unsubscriber } from "./lib/stores";
 import {
 	DiscordDMChannel,
 	DiscordGroupDMChannel,
@@ -96,12 +95,25 @@ class GuildsJar extends Jar<DiscordGuild> {
 	}
 }
 
+export class DiscordGuildSettings extends WritableStore<
+	Omit<ClientUserGuildSetting, "version" | "channel_overrides">
+> {}
+
+class DiscordGuildSettingsJar extends Jar<DiscordGuildSettings, string | null> {}
+
 export class DiscordClientInit {
 	users = new UsersJar();
 	relationships = new RelationshipsJar();
 	dms = new DMsJar();
 	guilds = new GuildsJar();
-	private logger = new Logger("DiscordClientInit");
+	guildSettings = new DiscordGuildSettingsJar();
+
+	static logger = new Logger("DiscordClientInit");
+	config: Config;
+
+	close() {
+		this.Gateway.close();
+	}
 
 	// that's deep
 	handleRelationships(...relationships: ClientRelationship[]) {
@@ -130,14 +142,28 @@ export class DiscordClientInit {
 				has.recipients.shallowSet(_recipients);
 			} else {
 				if (r.type === ChannelType.DM) {
-					const dm = new DiscordDMChannel(obj, r.id, this.Request, this.Gateway);
+					const dm = new DiscordDMChannel(obj, r.id, _recipients, this.Request, this.Gateway);
 					this.dms.add(r.id, dm);
-					dm.recipients.shallowSet(_recipients);
 				} else {
-					const groupDM = new DiscordGroupDMChannel(obj, r.id, this.Request, this.Gateway);
+					const groupDM = new DiscordGroupDMChannel(
+						obj,
+						r.id,
+						_recipients,
+						this.Request,
+						this.Gateway
+					);
 					this.dms.add(r.id, groupDM);
-					groupDM.recipients.shallowSet(_recipients);
 				}
+			}
+		});
+	}
+
+	handleGuildSettings(...settings: ClientUserGuildSetting[]) {
+		settings.forEach(({ version, channel_overrides, ...settings }) => {
+			const has = this.guildSettings.get(settings.guild_id);
+			has?.shallowSet(settings);
+			if (!has) {
+				this.guildSettings.set(settings.guild_id, new DiscordGuildSettings(settings));
 			}
 		});
 	}
@@ -146,8 +172,9 @@ export class DiscordClientInit {
 		ready: ReadyEvent,
 		public Gateway: Gateway,
 		public Request: DiscordRequest,
-		public config: Config
+		config: Config
 	) {
+		this.config = config;
 		if (!config.client) throw Error("DiscordClient not initialized!");
 
 		this.handleRelationships(...ready.relationships);
@@ -158,8 +185,9 @@ export class DiscordClientInit {
 		ready.relationships.forEach((u) => this.addUser(u.user));
 
 		ready.guilds.forEach((a) => {
-			const guild = new DiscordGuild(a, this.Request, this.Gateway, this.users, config);
+			const guild = new DiscordGuild(a, this.Request, this.Gateway, this.users, this.guildSettings);
 			guild.handleChannels(...a.channels);
+			guild.channels.sorted.refresh();
 			this.guilds.add(a.id, guild);
 			a.members.forEach((m) => {
 				const user = this.addUser(m.user);
@@ -167,6 +195,11 @@ export class DiscordClientInit {
 				guild.members.add(profile);
 			});
 		});
+
+		this.handleGuildSettings(...ready.user_guild_settings);
+		Gateway.on("t:user_guild_settings_update", (evt: ClientUserGuildSetting) =>
+			this.handleGuildSettings(evt)
+		);
 
 		const handleRelationship = (evt: ClientRelationship) => this.handleRelationships(evt);
 
@@ -199,11 +232,18 @@ export class DiscordClientInit {
 					}
 
 					if (!guild_id) {
-						this.logger.err("guild_id was not provided by APIChannel", _channel);
+						DiscordClientInit.logger.err("guild_id was not provided by APIChannel!", _channel);
 						return;
 					}
 
-					this.guilds.get(guild_id)?.handleChannels(channel as ClientChannel);
+					const _guild = this.guilds.get(guild_id);
+
+					if (_guild) {
+						_guild.handleChannels(channel as ClientChannel);
+						_guild.channels.sorted.refresh();
+					} else {
+						DiscordClientInit.logger.err("guild is missing!!", guild_id, _channel);
+					}
 
 					break;
 			}
@@ -230,11 +270,19 @@ export class DiscordClientInit {
 					}
 
 					if (!guild_id) {
-						this.logger.err("guild_id was not provided by APIChannel", _channel);
+						DiscordClientInit.logger.err("guild_id was not provided by APIChannel!", _channel);
 						return;
 					}
 
-					this.guilds.get(guild_id)?.channels.delete(_channel.id);
+					const _guild = this.guilds.get(guild_id);
+
+					if (_guild) {
+						_guild.channels.delete(_channel.id);
+						_guild.channels.sorted.refresh();
+					} else {
+						DiscordClientInit.logger.err("guild is missing!!", guild_id, _channel);
+					}
+
 					break;
 			}
 		});
@@ -285,12 +333,22 @@ export default class DiscordClient extends EventEmitter {
 		const deffered = new Deferred<DiscordClientInit>();
 		this.getClient = () => deffered.promise;
 
-		this.Gateway.on("t:ready", (evt: ReadyEvent) => {
-			deffered.resolve(new DiscordClientInit(evt, this.Gateway, this.Request, config));
+		this.Gateway.once("t:ready", (evt: ReadyEvent) => {
+			try {
+				deffered.resolve(new DiscordClientInit(evt, this.Gateway, this.Request, config));
+			} catch (error) {
+				console.error(error);
+			}
 		});
 
-		this.Gateway.on("close", () => {
+		this.Gateway.once("close", () => {
+			this.Gateway.offAll();
+			Jar.offAllByCurrentID();
 			this.emit("close");
 		});
+	}
+
+	close() {
+		this.Gateway.close();
 	}
 }

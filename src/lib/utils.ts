@@ -1,7 +1,21 @@
+import Logger from "../Logger";
 import EventEmitter from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 
-export class Jar<T> extends Map<string, T> {
+let currentJarID = 0;
+
+export class Jar<T, R = string> extends Map<R, T> {
+	readonly id = currentJarID;
+
+	static emitter = new EventEmitter();
+	static logger = new Logger("Jar");
+
+	static offAllByCurrentID() {
+		Jar.emitter.emit("id", currentJarID);
+		currentJarID++;
+	}
+
+	logger?: Logger;
 	on: (event: string, listener: Function) => void;
 	once: (event: string, listener: Function) => void;
 	off: (event: string, listener: Function) => void;
@@ -18,19 +32,26 @@ export class Jar<T> extends Map<string, T> {
 		this.emit = evtM.emit.bind(evtM);
 		this.offAll = evtM.offAll.bind(evtM);
 		this.subscribe = evtM.subscribe.bind(evtM);
+
+		Jar.emitter.on("id", (id: number) => {
+			if (id === this.id) {
+				evtM.offAll();
+				(this.logger || Jar.logger).dbg("offAll", id, this)();
+			}
+		});
 	}
 
-	set(key: string, value: T) {
+	set(key: R, value: T) {
 		super.set(key, value);
 		this.emit("update", key, value);
 		return this;
 	}
 
-	add(key: string, value: T) {
+	add(key: R, value: T) {
 		return this.set(key, value);
 	}
 
-	delete(key: string): boolean {
+	delete(key: R): boolean {
 		const result = super.delete(key);
 		this.emit("update", key);
 		return result;
@@ -132,6 +153,21 @@ export class WritableStore<T> {
 
 	get value() {
 		return get(this);
+	}
+
+	toJSON() {
+		const jsonObj: any = {};
+
+		Object.getOwnPropertyNames(this).forEach((key) => {
+			const el = (this as any)[key];
+			if (typeof el !== "function") jsonObj[key] = el;
+		});
+
+		jsonObj.value = this.value;
+
+		console.log(jsonObj);
+
+		return jsonObj;
 	}
 }
 

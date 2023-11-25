@@ -6,6 +6,9 @@ import { DiscordClient, DiscordGuild, DiscordRelationship, MFA, setup } from "./
 import XMLHttpRequest from "./scripts/xhr.js";
 import Logger from "./src/Logger.js";
 import * as utils from "./src/lib/utils.js";
+import { DiscordDMChannel, DiscordGroupDMChannel } from "./src/DiscordChannels.js";
+import { channel } from "diagnostics_channel";
+import { Unsubscriber, derived } from "./src/lib/stores.js";
 
 const logger = new Logger("test.ts");
 
@@ -13,7 +16,7 @@ global.XMLHttpRequest = XMLHttpRequest as any;
 
 if (global.lastResult) {
 	const r = global.lastResult as DiscordClient;
-	r.Gateway.close();
+	r.close();
 }
 
 function setToken(token: string) {
@@ -71,44 +74,55 @@ if (result instanceof MFA) {
 	});
 
 	function enumarateDMs() {
-		logger.dbg("DMsJar", [...client.dms.values()])();
+		logger.dbg("Enumerating DMs:")();
+
+		client.dms.list().forEach((dm) => {
+			let name: string;
+
+			name = dm.recipients.value.map(({ value }) => value.global_name || value.username).join(", ");
+
+			if (dm instanceof DiscordGroupDMChannel && dm.value.name) {
+				name = dm.value.name;
+			}
+
+			// logger.dbg(name, dm, dm.value)();
+		});
 	}
 
 	enumarateDMs();
 	client.dms.on("update", enumarateDMs);
 
-	function enumarateChannels(guild: DiscordGuild) {
-		logger.dbg("Enumerating Channels:", guild.value.name)();
-		guild.channels.sorted(true).forEach((c) => {
-			const args = [c.value.name];
-			if ("roleAccess" in c) {
-				if (c.roleAccess().VIEW_CHANNEL === false) args.unshift("[hidden]");
-			}
-			logger.dbg(...args)();
-		});
-	}
 	client.guilds.forEach((guild) => {
-		enumarateChannels(guild);
-		let index: number = 0;
+		const registered: Unsubscriber[] = [];
 
-		guild.channels.sorted(true).forEach((e, i) => {
-			index = i;
-			e.subscribe(() => {
-				if (index === i) return;
-				enumarateChannels(guild);
+		guild.channels.sorted.subscribe((channels) => {
+			// logger.dbg("Enumerating Channels:", guild.value.name)();
+			registered.forEach((e) => e());
+			registered.length = 0;
+
+			let done = false;
+
+			channels.forEach((c) => {
+				const args: any = [c.value.name, c, c.value];
+				if ("roleAccess" in c) {
+					if (c.roleAccess().VIEW_CHANNEL === false) {
+						args.unshift("[hidden]");
+					}
+				}
+
+				registered.push(
+					c.subscribe((e) => {
+						const ch_update = "channel update:";
+						if (done && args[0] !== ch_update) {
+							args.unshift(ch_update);
+						}
+						args[args.length - 3] = c.value.name;
+						// logger.dbg(...args)();
+					})
+				);
 			});
-		});
 
-		index++;
-
-		guild.channels.on("update", (key, val) => {
-			val?.subscribe(() => {
-				enumarateChannels(guild);
-			});
-
-			if (!val) {
-				enumarateChannels(guild);
-			}
+			done = true;
 		});
 	});
 }

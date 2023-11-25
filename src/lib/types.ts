@@ -1,26 +1,21 @@
 import type {
 	APIUser,
-	APIEmoji,
 	GatewayActivity,
 	APIInteractionGuildMember,
-	APIOverwrite,
 	ChannelType,
 	APIGuild,
-	GatewayReadyDispatch,
 	GatewayReadyDispatchData,
 	APIGuildTextChannel,
 	GuildTextChannelType,
-	APIGuildChannel,
-	APIThreadOnlyChannel,
 	APIGuildForumChannel,
 	APIGuildCategoryChannel,
 	APIVoiceChannelBase,
 } from "discord-api-types/v10";
-export * from "discord-api-types/v10";
+export type * from "discord-api-types/v10";
 
 export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
 	user_settings: UserSettings;
-	user_guild_settings: UserGuildSetting[];
+	user_guild_settings: ClientUserGuildSetting[];
 	// is this part intentional?
 	user: APIUser;
 	sessions: Session[];
@@ -74,10 +69,17 @@ interface IconEmoji {
 }
 
 type ClientGuildTextChannel = APIGuildTextChannel<GuildTextChannelType> & ClientChannelBase;
-type ClientGuildVoiceChannel = APIVoiceChannelBase<ChannelType.GuildVoice | ChannelType.GuildStageVoice> & ClientChannelBase;
+type ClientGuildVoiceChannel = APIVoiceChannelBase<
+	ChannelType.GuildVoice | ChannelType.GuildStageVoice
+> &
+	ClientChannelBase;
 type ClientGuildForumChannel = APIGuildForumChannel & ClientChannelBase;
 
-export type ClientChannel = APIGuildCategoryChannel | ClientGuildTextChannel | ClientGuildVoiceChannel | ClientGuildForumChannel;
+export type ClientChannel =
+	| APIGuildCategoryChannel
+	| ClientGuildTextChannel
+	| ClientGuildVoiceChannel
+	| ClientGuildForumChannel;
 
 // this is what's undocumented in the discord api types library
 interface ClientChannelBase {
@@ -209,7 +211,7 @@ interface Session {
 	activities: any[];
 }
 
-interface UserGuildSetting {
+export interface ClientUserGuildSetting {
 	version: number;
 	suppress_roles: boolean;
 	suppress_everyone: boolean;
@@ -222,10 +224,10 @@ interface UserGuildSetting {
 	hide_muted_channels: boolean;
 	guild_id: null | string;
 	flags: number;
-	channel_overrides: ChannelOverride[];
+	channel_overrides: ClientChannelOverride[];
 }
 
-interface ChannelOverride {
+export interface ClientChannelOverride {
 	muted: boolean;
 	mute_config: null;
 	message_notifications: number;

@@ -1,6 +1,9 @@
+// @ts-ignore
+import prune from "json-prune";
+
 interface Log {
 	type: string;
-	message: any[];
+	args: any[];
 	name: string;
 	stack?: string;
 }
@@ -68,14 +71,38 @@ export default class Logger {
 			...args
 		);
 
-		if (Logger.logToFile)
-			Logger.file.push({
-				name: this.name,
-				type: String(type),
-				message: args,
-				stack: new Error().stack,
-			});
+		Logger.fileLog(this.name, String(type), args, new Error().stack);
 
 		return binded;
+	}
+
+	static fileLog(name: string, type: string, args: any[], stack?: string) {
+		setTimeout(() => {
+			const obj = {
+				name,
+				type,
+				args,
+				stack,
+			};
+
+			Logger.file.push(obj);
+		}, 5 + Math.floor(100 * Math.random()));
+	}
+
+	static exportFile() {
+		return prune(Logger.file, {
+			allProperties: true,
+			inheritedProperties: true,
+			// replacer: function r(value: any, defaultValue: any, circular: any) {
+			// 	if (typeof value === "object" && !circular) {
+			// 		return prune(value, {
+			// 			allProperties: true,
+			// 			inheritedProperties: true,
+			// 			replacer: r,
+			// 		});
+			// 	}
+			// 	return defaultValue;
+			// },
+		});
 	}
 }

@@ -6,7 +6,7 @@ import {
 	Snowflake,
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
-import { DiscordUser } from "./DiscordClient";
+import { DiscordGuildSettings, DiscordUser } from "./DiscordClient";
 import { WritableStore, toVoid, Jar } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
@@ -70,12 +70,29 @@ type RoleAccess = Partial<Record<keyof typeof PermissionFlagsBits, boolean>>;
 
 type ChannelsJarItems = DiscordGuildTextChannel<GuildTextChannelType> | DiscordGuildChannelCategory;
 
-class ChannelsJar extends Jar<ChannelsJarItems> {
-	constructor(public guild: DiscordGuild) {
-		super();
+class SortedChannels extends WritableStore<ChannelsJarItems[]> {
+	constructor(public $: ChannelsJar) {
+		super($.toSorted(true));
 	}
 
-	sorted(includeHidden = false) {
+	refresh() {
+		this.shallowSet(this.$.toSorted(true));
+	}
+}
+
+class ChannelsJar extends Jar<ChannelsJarItems> {
+	sorted = new SortedChannels(this);
+
+	constructor(public guild: DiscordGuild) {
+		super();
+		console.log("ChannelsJar created", guild);
+	}
+
+	toSorted(includeHidden = false) {
+		// TODO: implement experimental favorite category
+		const implementExperimentalFavoriteCategory =
+			this.guild?.config?.experimental_favorite_channels || false;
+
 		const list = this.list();
 
 		const position = (a: ChannelsJarItems, b: ChannelsJarItems) =>
@@ -111,11 +128,11 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 }
 
 export class DiscordGuild extends WritableStore<
-	Pick<ClientGuild, "name" | "icon" | "description" | "owner_id" | "roles">
+	Pick<ClientGuild, "name" | "icon" | "description" | "owner_id" | "roles" | "rules_channel_id">
 > {
 	id: Snowflake;
 	channels = new ChannelsJar(this);
-	private logger = new Logger("DiscordGuild");
+	static logger = new Logger("DiscordGuild");
 	members = new Set<DiscordServerProfile>();
 
 	constructor(
@@ -123,7 +140,7 @@ export class DiscordGuild extends WritableStore<
 		public Request: DiscordRequest,
 		public Gateway: Gateway,
 		public $users: Jar<DiscordUser>,
-		public config: Config
+		public $guildSettings: Jar<DiscordGuildSettings, string | null>
 	) {
 		super({
 			name: $.name,
@@ -131,14 +148,19 @@ export class DiscordGuild extends WritableStore<
 			description: $.description,
 			owner_id: $.owner_id,
 			roles: $.roles,
+			rules_channel_id: $.rules_channel_id,
 		});
 		this.id = $.id;
+	}
+
+	get config() {
+		return this.Request.config;
 	}
 
 	parseRoleAccess(overwrites: APIOverwrite[] = []) {
 		const rej = new Error("Gateway not initialized properly!");
 
-		let obj: RoleAccess = {};
+		const obj: RoleAccess = {};
 
 		const user_id = this.config.user_id;
 		if (!user_id) throw rej;
@@ -242,13 +264,23 @@ export class DiscordGuild extends WritableStore<
 								a.id,
 								new DiscordGuildTextChannel<_channelType>(props, a.type, this, a.id)
 							);
-						} else (has as _has).deepUpdate((prev) => ({ ...prev, ...props }));
+						} else {
+							const updater = <T>(prev: T) => ({ ...prev, ...props });
+
+							// if new state has array, then use deepEqual comparison
+							if (props.permission_overwrites) (has as _has).deepUpdate(updater);
+							else (has as _has).shallowUpdate(updater);
+						}
 					}
 					break;
 
 				default:
-					this.logger.err("unsupported ChannelType:", ChannelType[a.type], a)();
+					DiscordGuild.logger.err("unsupported ChannelType:", ChannelType[a.type], a)();
 			}
 		});
+	}
+
+	get settings() {
+		return this.$guildSettings.get(this.id)!;
 	}
 }
