@@ -276,7 +276,7 @@ export class DiscordClientReady {
 
 		Gateway.on("t:channel_create", handleChannels);
 		Gateway.on("t:channel_update", handleChannels);
-		Gateway.on("t:channel_delete", (channel: APIChannel) => {
+		Gateway.on("t:channel_delete", (channel) => {
 			switch (channel.type) {
 				case ChannelType.DM:
 				case ChannelType.GroupDM:
@@ -313,15 +313,15 @@ export class DiscordClientReady {
 		});
 
 		// assume this is a thing only found in groupchats
-		Gateway.on("t:channel_recipient_add", (evt: { channel_id: Snowflake; user: APIUser }) => {
+		Gateway.on("t:channel_recipient_add", (evt) => {
 			this.addUser(evt.user);
-			const dm = this.dms.get(evt.channel_id) as DiscordGroupDMChannel;
+			const dm = this.dms.get(evt.channel_id)!;
 			const user = this.users.get(evt.user.id)!;
 
 			dm.recipients.shallowUpdate((m) => m.concat(user));
 		});
-		Gateway.on("t:channel_recipient_remove", (evt: { channel_id: Snowflake; user: APIUser }) => {
-			const dm = this.dms.get(evt.channel_id) as DiscordGroupDMChannel;
+		Gateway.on("t:channel_recipient_remove", (evt) => {
+			const dm = this.dms.get(evt.channel_id)!;
 			const user = this.users.get(evt.user.id)!;
 
 			dm.recipients.shallowUpdate((m) => m.filter((e) => e !== user));
@@ -331,20 +331,17 @@ export class DiscordClientReady {
 			this.readStates.add(rs.id, new DiscordReadState(rs));
 		});
 
-		Gateway.on(
-			"t:message_ack",
-			({ mention_count, channel_id, message_id, ack_type }: MessageACKEvent) => {
-				const el = read_states.find((e) => e.id == channel_id);
-				let changed = false;
-				if (el) {
-					changed = el.last_message_id !== message_id;
-					el.last_message_id = message_id;
-					el.mention_count = mention_count || 0;
-				}
-				if (changed) this.emit(channel_id);
+		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id, ack_type }) => {
+			const el = read_states.find((e) => e.id == channel_id);
+			let changed = false;
+			if (el) {
+				changed = el.last_message_id !== message_id;
+				el.last_message_id = message_id;
+				el.mention_count = mention_count || 0;
 			}
-		);
-		Gateway.on("t:channel_unread_update", (event: ChannelUnreadUpdateEvent) => {
+			if (changed) this.emit(channel_id);
+		});
+		Gateway.on("t:channel_unread_update", (event) => {
 			event.channel_unread_updates.forEach((state) => {
 				let el = read_states.find((e) => e.id == state.id);
 				if (el && el.last_message_id !== state.last_message_id) {

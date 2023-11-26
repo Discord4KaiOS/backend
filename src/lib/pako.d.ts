@@ -1,6 +1,13 @@
-import _Pako from "pako";
+import type _Pako from "pako";
 
-interface Pako {
+type Constants = typeof _Pako.constants;
+
+export class Inflate extends _Pako.Inflate {
+	chunks: any[] = [];
+	strm: any;
+}
+
+interface Pako extends Constants {
 	deflate: typeof _Pako.deflate;
 	inflate: typeof _Pako.inflate;
 	gzip: typeof _Pako.gzip;
@@ -8,8 +15,11 @@ interface Pako {
 	deflateRaw: typeof _Pako.deflateRaw;
 	inflateRaw: typeof _Pako.inflateRaw;
 	Deflate: typeof _Pako.Deflate;
-	Inflate: typeof _Pako.Inflate;
-	[x: string]: Function | number;
+	Inflate: typeof Inflate;
 }
 
-export declare function pako(): Pako;
+function pako(): Pako {
+	return _Pako as any;
+}
+
+export default pako;

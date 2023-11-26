@@ -1,14 +1,14 @@
 /// <reference types="bun-types" />
 
 import { appendFile } from "fs/promises";
-import { DiscordClient, DiscordGuild, DiscordRelationship, MFA, setup } from "./index";
+import { DiscordClient, DiscordRelationship, MFA, setup } from "./index";
 // @ts-ignore
 import XMLHttpRequest from "./scripts/xhr.js";
 import Logger from "./src/Logger.js";
 import * as utils from "./src/lib/utils.js";
-import { DiscordDMChannel, DiscordGroupDMChannel } from "./src/DiscordChannels.js";
-import { channel } from "diagnostics_channel";
-import { Unsubscriber, derived } from "./src/lib/stores.js";
+import { DiscordGroupDMChannel } from "./src/DiscordChannels.js";
+
+import { Unsubscriber } from "./src/lib/stores.js";
 
 const logger = new Logger("test.ts");
 

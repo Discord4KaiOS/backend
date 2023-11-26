@@ -3,7 +3,7 @@
  * reverse engineered and stuff
  * I have absolutely no idea why other stuff doesn't work
  */
-export function pako() {
+export default function pako() {
 	const CONSTANTS = {
 		Z_NO_FLUSH: 0,
 		Z_PARTIAL_FLUSH: 1,
@@ -75,10 +75,22 @@ export function pako() {
 
 	var exports_827948 = {};
 	var o_9241 = 15,
-		i_9241 = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0],
-		a_9241 = [16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 72, 78],
-		s_9241 = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0],
-		u_9241 = [16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 64, 64];
+		i_9241 = [
+			3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131,
+			163, 195, 227, 258, 0, 0,
+		],
+		a_9241 = [
+			16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 20, 20, 20,
+			20, 21, 21, 21, 21, 16, 72, 78,
+		],
+		s_9241 = [
+			1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537,
+			2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0,
+		],
+		u_9241 = [
+			16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25, 26,
+			26, 27, 27, 28, 28, 29, 29, 64, 64,
+		];
 
 	const t_502869 = (function () {
 		for (var e, t = [], n = 0; n < 256; n++) {
@@ -1230,7 +1242,9 @@ export function pako() {
 						g -= I;
 						e.total_out += g;
 						n.total += g;
-						g && (e.adler = n.check = n.flags ? i_827948(n.check, d, g, p - g) : o_827948(n.check, d, g, p - g));
+						g &&
+							(e.adler = n.check =
+								n.flags ? i_827948(n.check, d, g, p - g) : o_827948(n.check, d, g, p - g));
 						g = I;
 						if ((n.flags ? T : f_827948(T)) !== n.check) {
 							e.msg = "incorrect data check";
@@ -1275,7 +1289,10 @@ export function pako() {
 		e.avail_in = h;
 		n.hold = T;
 		n.bits = m;
-		if ((n.wsize || (g !== e.avail_out && n.mode < l_827948 && (n.mode < 27 || 4 !== t))) && v_827948(e, e.output, e.next_out, g - e.avail_out)) {
+		if (
+			(n.wsize || (g !== e.avail_out && n.mode < l_827948 && (n.mode < 27 || 4 !== t))) &&
+			v_827948(e, e.output, e.next_out, g - e.avail_out)
+		) {
 			n.mode = 31;
 			return -4;
 		}
@@ -1284,8 +1301,17 @@ export function pako() {
 		e.total_in += S;
 		e.total_out += g;
 		n.total += g;
-		n.wrap && g && (e.adler = n.check = n.flags ? i_827948(n.check, d, g, e.next_out - g) : o_827948(n.check, d, g, e.next_out - g));
-		e.data_type = n.bits + (n.last ? 64 : 0) + (n.mode === c_827948 ? 128 : 0) + (20 === n.mode || 15 === n.mode ? 256 : 0);
+		n.wrap &&
+			g &&
+			(e.adler = n.check =
+				n.flags
+					? i_827948(n.check, d, g, e.next_out - g)
+					: o_827948(n.check, d, g, e.next_out - g));
+		e.data_type =
+			n.bits +
+			(n.last ? 64 : 0) +
+			(n.mode === c_827948 ? 128 : 0) +
+			(20 === n.mode || 15 === n.mode ? 256 : 0);
 		((0 === S && 0 === g) || 4 === t) && 0 === w && (w = -5);
 		return w;
 	};
@@ -1335,7 +1361,18 @@ export function pako() {
 	}
 
 	for (var a_929373 = new Utils.Buf8(256), s_929373 = 0; s_929373 < 256; s_929373++)
-		a_929373[s_929373] = s_929373 >= 252 ? 6 : s_929373 >= 248 ? 5 : s_929373 >= 240 ? 4 : s_929373 >= 224 ? 3 : s_929373 >= 192 ? 2 : 1;
+		a_929373[s_929373] =
+			s_929373 >= 252
+				? 6
+				: s_929373 >= 248
+				? 5
+				: s_929373 >= 240
+				? 4
+				: s_929373 >= 224
+				? 3
+				: s_929373 >= 192
+				? 2
+				: 1;
 	a_929373[254] = a_929373[254] = 1;
 
 	extraUtils.string2buf = function (e) {
@@ -1347,7 +1384,11 @@ export function pako() {
 			s = e.length,
 			u = 0;
 		for (i = 0; i < s; i++) {
-			if (55296 == (64512 & (n = e.charCodeAt(i))) && i + 1 < s && 56320 == (64512 & (o = e.charCodeAt(i + 1)))) {
+			if (
+				55296 == (64512 & (n = e.charCodeAt(i))) &&
+				i + 1 < s &&
+				56320 == (64512 & (o = e.charCodeAt(i + 1)))
+			) {
 				n = 65536 + ((n - 55296) << 10) + (o - 56320);
 				i++;
 			}
@@ -1355,7 +1396,11 @@ export function pako() {
 		}
 		t = new Utils.Buf8(u);
 		for (a = 0, i = 0; a < u; i++) {
-			if (55296 == (64512 & (n = e.charCodeAt(i))) && i + 1 < s && 56320 == (64512 & (o = e.charCodeAt(i + 1)))) {
+			if (
+				55296 == (64512 & (n = e.charCodeAt(i))) &&
+				i + 1 < s &&
+				56320 == (64512 & (o = e.charCodeAt(i + 1)))
+			) {
 				n = 65536 + ((n - 55296) << 10) + (o - 56320);
 				i++;
 			}
@@ -1378,7 +1423,8 @@ export function pako() {
 	};
 
 	function u_929373(e, t) {
-		if (t < 65534 && ((e.subarray && i_929373) || (!e.subarray && o_929373))) return String.fromCharCode.apply(null, Utils.shrinkBuf(e, t));
+		if (t < 65534 && ((e.subarray && i_929373) || (!e.subarray && o_929373)))
+			return String.fromCharCode.apply(null, Utils.shrinkBuf(e, t));
 		for (var n = "", a = 0; a < t; a++) n += String.fromCharCode(e[a]);
 		return n;
 	}
@@ -1500,7 +1546,11 @@ export function pako() {
 			h = !1;
 		if (this.ended) return !1;
 		s = t === ~~t ? t : !0 === t ? CONSTANTS.Z_FINISH : CONSTANTS.Z_NO_FLUSH;
-		"string" == typeof e ? (d.input = extraUtils.binstring2buf(e)) : "[object ArrayBuffer]" === l.call(e) ? (d.input = new Uint8Array(e)) : (d.input = e);
+		"string" == typeof e
+			? (d.input = extraUtils.binstring2buf(e))
+			: "[object ArrayBuffer]" === l.call(e)
+			? (d.input = new Uint8Array(e))
+			: (d.input = e);
 		d.next_in = 0;
 		d.avail_in = d.input.length;
 		do {
@@ -1510,7 +1560,12 @@ export function pako() {
 				d.avail_out = E;
 			}
 			if ((n = exports_827948.inflate(d, CONSTANTS.Z_NO_FLUSH)) === CONSTANTS.Z_NEED_DICT && p) {
-				_ = "string" == typeof p ? extraUtils.string2buf(p) : "[object ArrayBuffer]" === l.call(p) ? new Uint8Array(p) : p;
+				_ =
+					"string" == typeof p
+						? extraUtils.string2buf(p)
+						: "[object ArrayBuffer]" === l.call(p)
+						? new Uint8Array(p)
+						: p;
 				n = exports_827948.inflateSetDictionary(this.strm, _);
 			}
 			if (n === CONSTANTS.Z_BUF_ERROR && !0 === h) {
@@ -1522,7 +1577,12 @@ export function pako() {
 				this.ended = !0;
 				return !1;
 			}
-			if (d.next_out && (0 === d.avail_out || n === CONSTANTS.Z_STREAM_END || (0 === d.avail_in && (s === CONSTANTS.Z_FINISH || s === CONSTANTS.Z_SYNC_FLUSH))))
+			if (
+				d.next_out &&
+				(0 === d.avail_out ||
+					n === CONSTANTS.Z_STREAM_END ||
+					(0 === d.avail_in && (s === CONSTANTS.Z_FINISH || s === CONSTANTS.Z_SYNC_FLUSH)))
+			)
 				if ("string" === this.options.to) {
 					u = extraUtils.utf8border(d.output, d.next_out);
 					c = d.next_out - u;
@@ -1552,7 +1612,10 @@ export function pako() {
 		this.chunks.push(e);
 	};
 	Inflate.prototype.onEnd = function (e) {
-		e === CONSTANTS.Z_OK && ("string" === this.options.to ? (this.result = this.chunks.join("")) : (this.result = Utils.flattenChunks(this.chunks)));
+		e === CONSTANTS.Z_OK &&
+			("string" === this.options.to
+				? (this.result = this.chunks.join(""))
+				: (this.result = Utils.flattenChunks(this.chunks)));
 		this.chunks = [];
 		this.err = e;
 		this.msg = this.strm.msg;

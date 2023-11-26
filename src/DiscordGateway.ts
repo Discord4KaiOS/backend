@@ -1,36 +1,32 @@
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
 
-import { pako } from "./lib/pako";
+import initPako from "./lib/pako";
+import type { Inflate } from "./lib/pako";
+import {
+	APIChannel,
+	APIUser,
+	ClientReadState,
+	ClientRelationship,
+	ReadyEvent,
+	Snowflake,
+} from "./lib/types";
 
-type Dispatch = 0;
-type Heartbeat = 1;
-type Identify = 2;
-type PresenceUpdate = 3;
-type VoiceStateUpdate = 4;
-type Resume = 6;
-type Reconnect = 7;
-type RequestGuildMembers = 8;
-type InvalidSession = 9;
-type Hello = 10;
-type HeartbeatAck = 11;
-type GuildSync = 12;
-type LazyGuilds = 14;
-
-type GatewayOPCodes =
-	| Dispatch
-	| Heartbeat
-	| Identify
-	| PresenceUpdate
-	| VoiceStateUpdate
-	| Resume
-	| Reconnect
-	| RequestGuildMembers
-	| InvalidSession
-	| Hello
-	| HeartbeatAck
-	| GuildSync
-	| LazyGuilds;
+const enum GatewayOPCodes {
+	Dispatch = 0,
+	Heartbeat = 1,
+	Identify = 2,
+	PresenceUpdate = 3,
+	VoiceStateUpdate = 4,
+	Resume = 6,
+	Reconnect = 7,
+	RequestGuildMembers = 8,
+	InvalidSession = 9,
+	Hello = 10,
+	HeartbeatAck = 11,
+	GuildSync = 12,
+	LazyGuilds = 14,
+}
 
 interface GatewayEvent<T = any> {
 	op: GatewayOPCodes;
@@ -48,15 +44,47 @@ function getRandomColor() {
 	return color;
 }
 
-export default class Gateway extends EventEmitter {
+interface MessageACKEvent {
+	version: number;
+	message_id: string;
+	channel_id: string;
+	mention_count?: number;
+	manual?: boolean;
+	ack_type?: 0;
+}
+
+interface ChannelUnreadUpdateEvent {
+	channel_unread_updates: ClientReadState[];
+	guild_id: string;
+}
+
+const Pako = initPako();
+
+type GatewayEventsUnion = Record<
+	"t:relationship_update" | "t:relationship_add" | "t:relationship_remove",
+	[ClientRelationship]
+> &
+	Record<"t:channel_create" | "t:channel_update" | "t:channel_delete", [APIChannel]> &
+	Record<
+		"t:channel_recipient_add" | "t:channel_recipient_remove",
+		[{ channel_id: Snowflake; user: APIUser }]
+	>;
+
+interface GatewayEventsMap extends GatewayEventsUnion {
+	"t:ready": [ReadyEvent];
+	"t:message_ack": [MessageACKEvent];
+	"t:channel_unread_update": [ChannelUnreadUpdateEvent];
+	close: [];
+	[x: string]: any[];
+}
+
+export default class Gateway extends EventEmitter<GatewayEventsMap> {
 	private token?: string;
 	private ws?: WebSocket;
 	private sequence_num: number | null = null;
 	private authenticated = false;
 	readonly streamURL = "wss://gateway.discord.gg/?v=9&encoding=json&compress=zlib-stream";
-	// @ts-ignore
-	private pako = pako();
-	private _inflate: any;
+	private _inflate: Inflate | null = null;
 
 	constructor(public _debug = false) {
 		super();
@@ -68,41 +96,41 @@ export default class Gateway extends EventEmitter {
 		this.token = token;
 	}
 	send(data: object) {
-		this.logger.dbg("send:", data)();
+		this.logger.info("send:", data)();
 		this.ws?.send(JSON.stringify(data));
 	}
 	#handlePacket(packet: GatewayEvent) {
-		this.logger.dbg("Handling packet with OP ", packet.op)();
+		this.logger.info("Handling packet with OP ", packet.op)();
 
 		switch (packet.op) {
-			case 0:
-				this.#packetDispatch(packet);
+			case GatewayOPCodes.Dispatch:
+				this.#dispatch(packet);
 				break;
-			case 9:
-				this.#packetInvalidSess(packet);
+			case GatewayOPCodes.InvalidSession:
+				this.#invalidSess(packet);
 				break;
-			case 10:
-				this.#packetHello(packet);
+			case GatewayOPCodes.Hello:
+				this.#hello(packet);
 				break;
-			case 11:
-				this.#packetAck();
+			case GatewayOPCodes.HeartbeatAck:
+				this.#hearbeatAck();
 				break;
 			default:
-				this.logger.dbg("OP " + packet.op + "not found!")();
+				this.logger.err("OP " + packet.op + "not found!")();
 				break;
 		}
 	}
-	#packetDispatch(packet: GatewayEvent) {
+	#dispatch(packet: GatewayEvent) {
 		this.sequence_num = packet.s;
-		this.logger.dbg("dispatch:", packet)();
+		this.logger.info("dispatch:", packet)();
 		packet.t && this.emit("t:" + packet.t.toLowerCase(), packet.d);
 	}
-	#packetInvalidSess(packet: GatewayEvent<false>) {
-		this.logger.dbg("sess inv:", packet)();
+	#invalidSess(packet: GatewayEvent<false>) {
+		this.logger.info("sess inv:", packet)();
 		this.close();
 	}
 
-	#packetHello(
+	#hello(
 		packet: GatewayEvent<{
 			heartbeat_interval: number;
 		}>
@@ -110,18 +138,18 @@ export default class Gateway extends EventEmitter {
 		const ws = this.ws,
 			beatMeat = () => this.send({ op: 1, d: this.sequence_num });
 
-		this.logger.dbg("Sending initial heartbeat...")();
+		this.logger.info("Sending initial heartbeat...")();
 		beatMeat();
 
 		const interval = setInterval(() => {
 			if (ws !== this.ws) return clearInterval(interval);
-			this.logger.dbg("Sending heartbeat...")();
+			this.logger.info("Sending heartbeat...")();
 			beatMeat();
 		}, packet.d.heartbeat_interval) as number;
-		this.logger.dbg("heartbeat interval: ", packet.d.heartbeat_interval)();
+		this.logger.info("heartbeat interval: ", packet.d.heartbeat_interval)();
 	}
 
-	#packetAck() {
+	#hearbeatAck() {
 		if (this.authenticated) return;
 		this.authenticated = true;
 		this.send({
@@ -151,34 +179,38 @@ export default class Gateway extends EventEmitter {
 	init() {
 		if (!this.token) throw Error("You need to authenticate first!");
 
-		this.logger.dbg("Connecting to gateway...")();
+		this.logger.info("Connecting to gateway...")();
 
 		this.close();
 
-		const pako = this.pako;
+		const inflate = new Pako.Inflate({ chunkSize: 65536, to: "string" });
 
-		this._inflate = new pako.Inflate({ chunkSize: 65536, to: "string" });
-		const ws = (this.ws = new WebSocket(this.streamURL));
-		ws.binaryType = "arraybuffer";
+		inflate.onEnd = (e: number) => {
+			if (e !== Pako.Z_OK) throw new Error(`zlib error, ${e}, ${inflate.strm.msg}`);
 
-		this._inflate.onEnd = (e: number) => {
-			if (e !== pako.Z_OK) throw new Error(`zlib error, ${e}, ${this._inflate.strm.msg}`);
-
-			const chunks = this._inflate?.chunks as string[];
+			const chunks = inflate.chunks as string[];
 
 			const result = chunks.join("");
 			result && this.#handlePacket(JSON.parse(result));
 			chunks.length = 0;
 		};
 
+		this._inflate = inflate;
+
+		const ws = (this.ws = new WebSocket(this.streamURL));
+		ws.binaryType = "arraybuffer";
+
 		ws.addEventListener("message", ({ data }: MessageEvent<ArrayBuffer>) => {
 			if (!this._inflate) return;
-			const r = new DataView(data as ArrayBuffer),
-				o = r.byteLength >= 4 && 65535 === r.getUint32(r.byteLength - 4, false);
-			this._inflate.push(data, !!o && pako.Z_SYNC_FLUSH);
-		});
+			if (!(data instanceof ArrayBuffer)) {
+				this.logger.err("Received non-arraybuffer data!", data)();
+			}
 
-		ws.addEventListener("open", () => this.logger.dbg("Sending Identity [OP 2]...")());
+			const view = new DataView(data),
+				shouldFlush = view.byteLength >= 4 && 65535 === view.getUint32(view.byteLength - 4, false);
+			this._inflate.push(data, shouldFlush && Pako.Z_SYNC_FLUSH);
+		});
+		ws.addEventListener("open", () => this.logger.info("Sending Identity [OP 2]...")());
 		ws.addEventListener("close", () => {
 			this.ws = undefined;
 			this.close();
