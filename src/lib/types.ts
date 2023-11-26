@@ -21,7 +21,7 @@ export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
 	sessions: Session[];
 	session_type: string;
 	relationships: ClientRelationship[];
-	read_state: ReadState[];
+	read_state: ClientReadState[];
 	private_channels: PrivateChannel[];
 	guilds: ClientGuild[];
 	country_code: string;
@@ -175,10 +175,10 @@ export interface PrivateChannel {
 	managed?: boolean;
 }
 
-interface ReadState {
+export interface ClientReadState {
 	mention_count: number;
-	last_pin_timestamp: Date;
-	last_message_id: string;
+	last_pin_timestamp: string | null;
+	last_message_id: string | null;
 	id: string;
 }
 
@@ -228,6 +228,7 @@ export interface ClientUserGuildSetting {
 }
 
 export interface ClientChannelOverride {
+	flags: number;
 	muted: boolean;
 	mute_config: null;
 	message_notifications: number;

@@ -56,7 +56,8 @@ interface CreateMessageParams {
 	nonce?: string;
 	tts?: boolean;
 	message_reference?: APIMessageReference;
-	//message_components?: // TODO
+	// TODO
+	//message_components?:
 	attachments?: Partial<APIAttachment>[];
 }
 
@@ -152,6 +153,12 @@ export class DiscordGuildTextChannel<
 		super(props);
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
+	}
+
+	favorite = false;
+
+	get userOverrides() {
+		return this.guild.userSettings?.channelOverrides.get(this.id);
 	}
 
 	roleAccess() {

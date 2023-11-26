@@ -6,7 +6,7 @@ import {
 	Snowflake,
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
-import { DiscordGuildSettings, DiscordUser } from "./DiscordClient";
+import { DiscordGuildSetting, DiscordGuildSettingsJar, DiscordUser } from "./DiscordClient";
 import { WritableStore, toVoid, Jar } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
@@ -85,13 +85,16 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 
 	constructor(public guild: DiscordGuild) {
 		super();
-		console.log("ChannelsJar created", guild);
 	}
 
 	toSorted(includeHidden = false) {
-		// TODO: implement experimental favorite category
+		/**
+		 * TODO: implement experimental favorite category
+		 */
 		const implementExperimentalFavoriteCategory =
 			this.guild?.config?.experimental_favorite_channels || false;
+
+		const favorites: ChannelsJarItems[] = [];
 
 		const list = this.list();
 
@@ -116,6 +119,13 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 				switch (e.type) {
 					case ChannelType.GuildText:
 					case ChannelType.GuildAnnouncement:
+						if (implementExperimentalFavoriteCategory && e.userOverrides?.value.flags === 6144) {
+							e.favorite = true;
+							favorites.push(e);
+							break;
+						}
+
+						e.favorite = false;
 						const parent = map.get(e.value.parent_id || null);
 						(parent || map.get(null)!).push(e);
 						break;
@@ -123,7 +133,14 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 			}
 		});
 
-		return [...map.values()].sort(([a], [b]) => position(a, b)).flat();
+		const result = [...map.values()].sort(([a], [b]) => position(a, b)).flat();
+
+		if (favorites.length) {
+			favorites.sort(position);
+			result.unshift(...favorites);
+		}
+
+		return result;
 	}
 }
 
@@ -140,7 +157,7 @@ export class DiscordGuild extends WritableStore<
 		public Request: DiscordRequest,
 		public Gateway: Gateway,
 		public $users: Jar<DiscordUser>,
-		public $guildSettings: Jar<DiscordGuildSettings, string | null>
+		public $guildSettings: DiscordGuildSettingsJar
 	) {
 		super({
 			name: $.name,
@@ -151,6 +168,10 @@ export class DiscordGuild extends WritableStore<
 			rules_channel_id: $.rules_channel_id,
 		});
 		this.id = $.id;
+	}
+
+	get userSettings() {
+		return this.$guildSettings.get(this.id);
 	}
 
 	get config() {
