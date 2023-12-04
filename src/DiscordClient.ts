@@ -54,7 +54,7 @@ class ServerProfilesJar extends Jar<DiscordServerProfile> {
 }
 export class DiscordUser extends WritableStore<ClientAPIUser> {
 	id: string;
-	constructor(public $: ClientAPIUser, private $relationships: Jar<DiscordRelationship>) {
+	constructor(public $: ClientAPIUser, private $relationships: RelationshipsJar) {
 		super($);
 		this.id = $.id;
 	}
@@ -83,7 +83,31 @@ export class DiscordRelationship extends WritableStore<{
 
 class UsersJar extends Jar<DiscordUser> {}
 
-class RelationshipsJar extends Jar<DiscordRelationship> {}
+class RelationshipsJar extends Jar<DiscordRelationship> {
+	constructor(public $client: DiscordClientReady) {
+		super();
+	}
+
+	logger = new Logger("RelationshipsJar");
+
+	get(id: string) {
+		const has = super.get(id);
+		if (!has) {
+			const user = this.$client.users.get(id);
+			if (!user) {
+				this.logger.err("user not found", id)();
+				throw new Error("user not found " + id);
+			}
+			const makeOne = new DiscordRelationship(
+				{ id, type: 0, nickname: null, user: user.value },
+				this.$client.users
+			);
+			this.set(id, makeOne);
+			return makeOne;
+		}
+		return has;
+	}
+}
 
 class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {}
 
@@ -123,7 +147,7 @@ export class DiscordGuildSettingsJar extends Jar<DiscordGuildSetting, string | n
 
 export class DiscordClientReady {
 	users = new UsersJar();
-	relationships = new RelationshipsJar();
+	relationships = new RelationshipsJar(this);
 	dms = new DMsJar();
 	guilds = new GuildsJar();
 	guildSettings = new DiscordGuildSettingsJar();
@@ -139,11 +163,9 @@ export class DiscordClientReady {
 	// that's deep
 	handleRelationships(...relationships: ClientRelationship[]) {
 		relationships.forEach((r) => {
+			// it will always return a relationship
 			const has = this.relationships.get(r.id);
-			has?.shallowSet({ type: r.type, nickname: r.nickname });
-			if (!has) {
-				this.relationships.set(r.id, new DiscordRelationship(r, this.users));
-			}
+			has.shallowSet({ type: r.type, nickname: r.nickname });
 		});
 	}
 
@@ -232,7 +254,7 @@ export class DiscordClientReady {
 		Gateway.on("t:relationship_update", handleRelationship);
 		Gateway.on("t:relationship_add", handleRelationship);
 		Gateway.on("t:relationship_remove", (evt: ClientRelationship) => {
-			this.relationships.get(evt.id)?.shallowSet({ type: 0, nickname: null });
+			this.relationships.get(evt.id).shallowSet({ type: 0, nickname: null });
 		});
 
 		console.log(ready);
