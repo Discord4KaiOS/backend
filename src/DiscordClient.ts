@@ -163,6 +163,8 @@ export class DiscordClientReady {
 	// that's deep
 	handleRelationships(...relationships: ClientRelationship[]) {
 		relationships.forEach((r) => {
+			// to avoid user not being found
+			this.addUser(r.user);
 			// it will always return a relationship
 			const has = this.relationships.get(r.id);
 			has.shallowSet({ type: r.type, nickname: r.nickname });
