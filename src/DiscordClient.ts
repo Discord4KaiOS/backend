@@ -164,7 +164,7 @@ export class DiscordClientReady {
 	handleRelationships(...relationships: ClientRelationship[]) {
 		relationships.forEach((r) => {
 			// to avoid user not being found
-			this.addUser(r.user);
+			if (r.user) this.addUser(r.user);
 			// it will always return a relationship
 			const has = this.relationships.get(r.id);
 			has.shallowSet({ type: r.type, nickname: r.nickname });
@@ -255,7 +255,7 @@ export class DiscordClientReady {
 
 		Gateway.on("t:relationship_update", handleRelationship);
 		Gateway.on("t:relationship_add", handleRelationship);
-		Gateway.on("t:relationship_remove", (evt: ClientRelationship) => {
+		Gateway.on("t:relationship_remove", (evt) => {
 			this.relationships.get(evt.id).shallowSet({ type: 0, nickname: null });
 		});
 
