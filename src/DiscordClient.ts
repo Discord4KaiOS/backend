@@ -342,7 +342,8 @@ export class DiscordClientReady {
 
 	addUser(user: APIUser) {
 		const has = this.users.get(user.id);
-		has?.shallowSet(user);
+		// user object from API for current user lacks some properties
+		has?.shallowUpdate((u) => ({ u, ...user }));
 		if (!has) {
 			const _user = new DiscordUser(user, this.relationships);
 			this.users.set(user.id, _user);
