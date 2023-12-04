@@ -1,31 +1,48 @@
 import Logger from "../Logger";
-import EventEmitter from "./EventEmitter";
+import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 
-let currentJarID = 0;
+let currentJarID = Symbol("jarID");
 
-export class Jar<T, R = string> extends Map<R, T> {
-	readonly id = currentJarID;
+const JarIDEvent = Symbol("id");
 
-	static emitter = new EventEmitter();
+export interface JarEventMap<K, V> extends EventMap {
+	update: [K, V] | [K, void | undefined] | [K];
+}
+
+export class Jar<T, R = string, M extends JarEventMap<R, T> = JarEventMap<R, T>> extends Map<R, T> {
+	readonly id: symbol = currentJarID;
+
+	static emitter = new EventEmitter<{
+		[JarIDEvent]: [symbol];
+	}>();
 	static logger = new Logger("Jar");
+	on: <K extends keyof M>(event: K, listener: (...args: M[K]) => any) => void;
+	once: <K extends keyof M>(event: K, listener: (...args: M[K]) => any) => void;
+	off: <K extends keyof M>(event: K, listener: (...args: M[K]) => any) => void;
+	emit: <K extends keyof M>(event: K, ...args: M[K]) => void;
+	offAll: <K extends keyof M>(event?: K | undefined) => void;
+	subscribe: <K extends keyof M>(event: K, listener: (...args: M[K]) => any) => Unsubscriber;
+
+	static updateID() {
+		return (currentJarID = Symbol("jarID"));
+	}
 
 	static offAllByCurrentID() {
-		Jar.emitter.emit("id", currentJarID);
-		currentJarID++;
+		Jar.emitter.emit(JarIDEvent, currentJarID);
+		return (currentJarID = Symbol("jarID"));
+	}
+
+	static offAllByID(id: symbol) {
+		Jar.emitter.emit(JarIDEvent, id);
 	}
 
 	logger?: Logger;
-	on: (event: string, listener: Function) => void;
-	once: (event: string, listener: Function) => void;
-	off: (event: string, listener: Function) => void;
-	emit: (event: string, ...args: any[]) => void;
-	offAll: (event?: string | undefined) => void;
-	subscribe: (event: string, listener: Function) => Unsubscriber;
+
 	constructor() {
 		super();
 
-		const evtM = new EventEmitter();
+		const evtM = new EventEmitter<M>();
 		this.on = evtM.on.bind(evtM);
 		this.once = evtM.once.bind(evtM);
 		this.off = evtM.off.bind(evtM);
@@ -33,10 +50,10 @@ export class Jar<T, R = string> extends Map<R, T> {
 		this.offAll = evtM.offAll.bind(evtM);
 		this.subscribe = evtM.subscribe.bind(evtM);
 
-		Jar.emitter.on("id", (id: number) => {
+		Jar.emitter.on(JarIDEvent, (id) => {
 			if (id === this.id) {
 				evtM.offAll();
-				(this.logger || Jar.logger).dbg("offAll", id, this)();
+				(this.logger || Jar.logger)?.dbg("offAll", id, this)();
 			}
 		});
 	}

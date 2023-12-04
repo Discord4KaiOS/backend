@@ -12,17 +12,26 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 
 	static logger = new Logger("ReadStateHandler");
 
-	updateCount(channelID: string, count: number) {
-		const state = this.get(channelID);
+	incrementCount(channelID: string, count = 1) {
+		this.get(channelID).shallowUpdate((s) => ({
+			...s,
+			mention_count: s.mention_count + count,
+		}));
+	}
 
-		if (!state) {
-			ReadStateHandler.logger.err("state not found", channelID)();
+	updateCount(channelID: string, count?: number, message_id?: string | null) {
+		const state = this.get(channelID);
+		const current = state.value;
+
+		// Return early if messageId is provided and if last_message_id won't change
+		if (message_id && message_id === current.last_message_id) {
 			return;
 		}
 
 		state.shallowUpdate((s) => ({
 			...s,
-			mention_count: s.mention_count + count,
+			mention_count: count || s.mention_count,
+			last_message_id: message_id || current.last_message_id,
 		}));
 	}
 
@@ -46,7 +55,7 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 
 			if (!channel) {
 				ReadStateHandler.logger.err("channel not found", channelID)();
-				return undefined;
+				throw new Error("channel was not found");
 			}
 
 			const newState = new DiscordReadState({

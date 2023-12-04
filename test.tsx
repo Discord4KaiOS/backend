@@ -62,15 +62,16 @@ if (result instanceof MFA) {
 		});
 	});
 
-	client.relationships.on("update", (key, e: DiscordRelationship) => {
-		e.subscribe((stat) => {
-			logger.dbg(
-				"DiscordRelationshipChange",
-				e.user?.value.global_name,
-				stat.type,
-				stat.nickname
-			)();
-		});
+	client.relationships.on("update", (key, e) => {
+		if (e)
+			e.subscribe((stat) => {
+				logger.dbg(
+					"DiscordRelationshipChange",
+					e.user?.value.global_name,
+					stat.type,
+					stat.nickname
+				)();
+			});
 	});
 
 	function enumarateDMs() {
@@ -85,7 +86,7 @@ if (result instanceof MFA) {
 				name = dm.value.name;
 			}
 
-			// logger.dbg(name, dm, dm.value)();
+			logger.dbg(name, dm, dm.value)();
 		});
 	}
 

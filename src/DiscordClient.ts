@@ -330,30 +330,13 @@ export class DiscordClientReady {
 		ready.read_state.forEach((rs) => {
 			this.readStates.add(rs.id, new DiscordReadState(rs));
 		});
-
 		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id, ack_type }) => {
-			const el = read_states.find((e) => e.id == channel_id);
-			let changed = false;
-			if (el) {
-				changed = el.last_message_id !== message_id;
-				el.last_message_id = message_id;
-				el.mention_count = mention_count || 0;
-			}
-			if (changed) this.emit(channel_id);
+			this.readStates.updateCount(channel_id, mention_count, message_id);
 		});
 		Gateway.on("t:channel_unread_update", (event) => {
 			event.channel_unread_updates.forEach((state) => {
-				let el = read_states.find((e) => e.id == state.id);
-				if (el && el.last_message_id !== state.last_message_id) {
-					el.last_message_id = state.last_message_id;
-					this.emit(el.id);
-				}
+				this.readStates.updateCount(state.id, state.mention_count, state.last_message_id);
 			});
-		});
-		this.subscribe("count_update", (channelID: string, mentionCount: number) => {
-			const el = read_states.find((e) => e.id == channelID);
-			if (el) el.mention_count = el.mention_count + mentionCount;
-			this.emit(channelID);
 		});
 	}
 
@@ -387,6 +370,8 @@ export default class DiscordClient extends EventEmitter {
 		const deffered = new Deferred<DiscordClientReady>();
 		this.getClient = () => deffered.promise;
 
+		const currentJarID = Jar.updateID();
+
 		this.Gateway.once("t:ready", (evt: ReadyEvent) => {
 			try {
 				deffered.resolve(new DiscordClientReady(evt, this.Gateway, this.Request, config));
@@ -397,7 +382,7 @@ export default class DiscordClient extends EventEmitter {
 
 		this.Gateway.once("close", () => {
 			this.Gateway.offAll();
-			Jar.offAllByCurrentID();
+			Jar.offAllByID(currentJarID);
 			this.emit("close");
 		});
 	}

@@ -18,6 +18,7 @@ export default class Logger {
 	static file: Log[] = [];
 	static logToFile = false;
 	static disabledNames: string[] = [];
+	static disabled = false;
 
 	constructor(public name: string, public color: string = "#3E82E5") {}
 
@@ -60,7 +61,7 @@ export default class Logger {
 	}
 
 	private _log(type: consoleTypes, ...args: any[]) {
-		if (Logger.disabledNames.includes(this.name)) return () => {};
+		if (Logger.disabled || Logger.disabledNames.includes(this.name)) return () => {};
 
 		const binded = Function.prototype.bind.call(
 			console[type],

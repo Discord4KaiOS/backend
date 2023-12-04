@@ -76,6 +76,7 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:channel_unread_update": [ChannelUnreadUpdateEvent];
 	close: [];
 	[x: string]: any[];
+	[x: symbol]: any[];
 }
 
 export default class Gateway extends EventEmitter<GatewayEventsMap> {
@@ -145,7 +146,7 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 			if (ws !== this.ws) return clearInterval(interval);
 			this.logger.info("Sending heartbeat...")();
 			beatMeat();
-		}, packet.d.heartbeat_interval) as number;
+		}, packet.d.heartbeat_interval) as any as number;
 		this.logger.info("heartbeat interval: ", packet.d.heartbeat_interval)();
 	}
 

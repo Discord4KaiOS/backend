@@ -2,8 +2,9 @@ import Logger from "../Logger";
 
 export type Unsubscriber = () => void;
 
-interface EventMap {
+export interface EventMap {
 	[x: string]: any[];
+	[x: symbol]: any[];
 }
 
 export default class EventEmitter<T extends EventMap = EventMap> {

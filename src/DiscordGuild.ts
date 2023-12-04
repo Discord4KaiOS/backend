@@ -6,12 +6,11 @@ import {
 	Snowflake,
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
-import { DiscordGuildSetting, DiscordGuildSettingsJar, DiscordUser } from "./DiscordClient";
+import { DiscordGuildSettingsJar, DiscordUser } from "./DiscordClient";
 import { WritableStore, toVoid, Jar } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
-import { Config } from "./config";
 import Gateway from "./DiscordGateway";
 
 export const PermissionFlagsBits = {
