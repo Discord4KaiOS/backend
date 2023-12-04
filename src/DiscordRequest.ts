@@ -103,6 +103,7 @@ export default class DiscordRequest {
 	request<T = any>(method: string, url: string, props: RequestProps) {
 		// @ts-ignore: this should work, I have no idea why it's not working
 		const xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
+		xhr.open(method, fullURL(url), true);
 
 		const headers = {
 			"Content-Type": "application/json",
@@ -121,8 +122,6 @@ export default class DiscordRequest {
 		if (props.responseType) {
 			xhr.responseType = props.responseType;
 		}
-
-		xhr.open(method, fullURL(url), true);
 
 		let body: string | FormData | undefined;
 
