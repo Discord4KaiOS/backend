@@ -344,7 +344,7 @@ export class DiscordClientReady {
 	addUser(user: ClientAPIUser) {
 		const has = this.users.get(user.id);
 		// user object from API for current user lacks some properties
-		has?.shallowUpdate((u) => ({ u, ...user }));
+
 		if (has) {
 			const updater = <T>(u: T) => ({ ...u, ...user });
 
