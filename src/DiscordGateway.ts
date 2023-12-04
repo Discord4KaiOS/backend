@@ -5,7 +5,7 @@ import initPako from "./lib/pako";
 import type { Inflate } from "./lib/pako";
 import {
 	APIChannel,
-	APIUser,
+	ClientAPIUser,
 	ClientReadState,
 	ClientRelationship,
 	ReadyEvent,
@@ -67,7 +67,7 @@ type GatewayEventsUnion = Record<
 	Record<"t:channel_create" | "t:channel_update" | "t:channel_delete", [APIChannel]> &
 	Record<
 		"t:channel_recipient_add" | "t:channel_recipient_remove",
-		[{ channel_id: Snowflake; user: APIUser }]
+		[{ channel_id: Snowflake; user: ClientAPIUser }]
 	>;
 
 interface GatewayEventsMap extends GatewayEventsUnion {

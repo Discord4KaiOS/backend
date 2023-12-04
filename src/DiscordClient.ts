@@ -10,16 +10,17 @@ import {
 	ClientChannel,
 	ClientUserGuildSetting,
 	ClientChannelOverride,
+	ClientAPIUser,
 } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
 import {
 	APIChannel,
 	APIGuildMember,
 	APIGuildTextChannel,
-	APIUser,
 	GuildTextChannelType,
 	Snowflake,
 	ChannelType,
+	APIUser,
 } from "discord-api-types/v10";
 import {
 	DiscordDMChannel,
@@ -51,9 +52,9 @@ class ServerProfilesJar extends Jar<DiscordServerProfile> {
 		return has;
 	}
 }
-export class DiscordUser extends WritableStore<APIUser> {
+export class DiscordUser extends WritableStore<ClientAPIUser> {
 	id: string;
-	constructor(public $: APIUser, private $relationships: Jar<DiscordRelationship>) {
+	constructor(public $: ClientAPIUser, private $relationships: Jar<DiscordRelationship>) {
 		super($);
 		this.id = $.id;
 	}
@@ -340,11 +341,18 @@ export class DiscordClientReady {
 		});
 	}
 
-	addUser(user: APIUser) {
+	addUser(user: ClientAPIUser) {
 		const has = this.users.get(user.id);
 		// user object from API for current user lacks some properties
 		has?.shallowUpdate((u) => ({ u, ...user }));
-		if (!has) {
+		if (has) {
+			const updater = <T>(u: T) => ({ ...u, ...user });
+
+			// use deep comparison when decoration is present
+			if (user.avatar_decoration_data) {
+				has.deepUpdate(updater);
+			} else has.shallowUpdate(updater);
+		} else {
 			const _user = new DiscordUser(user, this.relationships);
 			this.users.set(user.id, _user);
 			return _user;

@@ -13,11 +13,17 @@ import type {
 } from "discord-api-types/v10";
 export type * from "discord-api-types/v10";
 
+export interface ClientAPIUser extends APIUser {
+	avatar_decoration_data?: {
+		sku_id: string;
+		asset: string;
+	} | null;
+}
 export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
 	user_settings: UserSettings;
 	user_guild_settings: ClientUserGuildSetting[];
 	// is this part intentional?
-	user: APIUser;
+	user: ClientAPIUser;
 	sessions: Session[];
 	session_type: string;
 	relationships: ClientRelationship[];
@@ -123,7 +129,7 @@ interface EntityMetadata {
 	location: string;
 }
 
-export interface ClientUser extends APIUser {
+export interface ClientUser extends ClientAPIUser {
 	verified: boolean;
 	purchased_flags: number;
 	premium_type: number;
@@ -156,7 +162,7 @@ interface Presence {
 
 export interface PrivateChannel {
 	type: ChannelType.DM | ChannelType.GroupDM;
-	recipients?: APIUser[];
+	recipients?: ClientAPIUser[];
 	last_message_id?: string | null;
 	last_pin_timestamp?: string | null;
 	is_spam?: boolean;
@@ -197,7 +203,7 @@ export interface ClientRelationship {
 	type: RelationshipType;
 	nickname: null | string;
 	id: string;
-	user: APIUser;
+	user: ClientAPIUser;
 }
 
 interface Session {
