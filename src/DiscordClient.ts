@@ -157,7 +157,7 @@ export class DiscordClientReady {
 			const _recipients = r.recipients?.map((u) => this.users.get(u.id)!) || [];
 
 			if (has) {
-				has.shallowSet(obj as any);
+				has.shallowUpdate((e) => ({ ...e, ...obj }));
 
 				has.recipients.shallowSet(_recipients);
 			} else {
