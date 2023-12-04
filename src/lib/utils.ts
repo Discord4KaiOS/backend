@@ -141,31 +141,32 @@ export class WritableStore<T> {
 	 * this is basically how React works lol
 	 */
 	shallowSet(value: T) {
-		!shallowEqual(this.value, value) && this.set(value);
+		const update = !shallowEqual(this.value, value);
+		update && this.set(value);
+		return update;
 	}
 
 	shallowUpdate(updater: Updater<T>) {
 		const newVal = updater(this.value);
-		!shallowEqual(this.value, newVal) && this.set(newVal);
+		const update = !shallowEqual(this.value, newVal);
+		update && this.set(newVal);
+		return update;
 	}
 
 	/**
 	 * recursively check if the value is different
 	 */
 	deepSet(value: T) {
-		const shallow = shallowEqual(this.value, value);
-
-		// if it's not shallow equal, then check if it's not deep equal
-		// technically, shallow equal is faster compared to deep equal
-		if (!shallow || !deepEqual(this.value, value)) this.set(value);
+		const update = !deepEqual(this.value, value);
+		update && this.set(value);
+		return update;
 	}
 
 	deepUpdate(updater: Updater<T>) {
 		const newVal = updater(this.value);
-		const shallow = shallowEqual(this.value, newVal);
-		const shouldUpdate = !shallow || !deepEqual(this.value, newVal);
-
-		if (shouldUpdate) this.set(newVal);
+		const shouldUpdate = !deepEqual(this.value, newVal);
+		shouldUpdate && this.set(newVal);
+		return shouldUpdate;
 	}
 
 	get value() {
@@ -181,8 +182,6 @@ export class WritableStore<T> {
 		});
 
 		jsonObj.value = this.value;
-
-		console.log(jsonObj);
 
 		return jsonObj;
 	}
