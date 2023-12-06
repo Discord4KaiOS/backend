@@ -1,3 +1,9 @@
+import {
+	GatewayMessageCreateDispatchData,
+	GatewayMessageDeleteBulkDispatchData,
+	GatewayMessageDeleteDispatchData,
+	GatewayMessageUpdateDispatchData,
+} from "discord-api-types/v10";
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
 
@@ -72,8 +78,15 @@ type GatewayEventsUnion = Record<
 
 interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:ready": [ReadyEvent];
-	"t:message_ack": [MessageACKEvent];
+
 	"t:channel_unread_update": [ChannelUnreadUpdateEvent];
+
+	// message things
+	"t:message_ack": [MessageACKEvent];
+	"t:message_create": [GatewayMessageCreateDispatchData];
+	"t:message_update": [GatewayMessageUpdateDispatchData];
+	"t:message_delete": [GatewayMessageDeleteDispatchData];
+	"t:message_delete_bulk": [GatewayMessageDeleteBulkDispatchData];
 	close: [];
 	[x: string]: any[];
 	[x: symbol]: any[];

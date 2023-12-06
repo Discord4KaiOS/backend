@@ -1,6 +1,7 @@
 import {
 	APIAttachment,
 	APIMessageReference,
+	APIMessage,
 	APIOverwrite,
 	ChannelFlags,
 	ChannelType,
@@ -11,7 +12,7 @@ import {
 import { DiscordUser } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { WritableStore } from "./lib/utils";
+import { Jar, WritableStore } from "./lib/utils";
 import { DiscordGuild } from "./DiscordGuild";
 
 export function generateNonce() {
@@ -26,8 +27,8 @@ class DiscordChannelBase<T extends DiscordChannelBaseProps> extends WritableStor
 	type!: ChannelType;
 	id!: Snowflake;
 
-	Request!: DiscordRequest;
-	Gateway!: Gateway;
+	Request?: DiscordRequest;
+	Gateway?: Gateway;
 
 	constructor(props: T) {
 		super(props);
@@ -66,8 +67,70 @@ interface DiscordTextChannelProps extends DiscordChannelBaseProps {
 	last_pin_timestamp?: string | null;
 }
 
+/**
+ * TODO:
+ * - DiscordReactions/DiscordReaction class
+ */
+export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableStore<
+	Pick<APIMessage, "content" | "pinned"> & {
+		edited_timestamp?: null | Date;
+	}
+> {
+	static preserveDeleted = false;
+	deleted = new WritableStore(false);
+
+	embeds = new WritableStore<APIMessage["embeds"]>([]);
+	attachments = new WritableStore<APIMessage["attachments"]>([]);
+	stickers = new WritableStore<APIMessage["sticker_items"]>([]);
+	reference?: APIMessageReference;
+	id: string;
+
+	constructor(
+		public $: APIMessage,
+		public author: DiscordUser,
+		public $channel: DiscordTextChannel<T>
+	) {
+		super({
+			content: $.content,
+			edited_timestamp: $.edited_timestamp ? new Date($.edited_timestamp) : null,
+			pinned: $.pinned,
+		});
+
+		this.id = $.id;
+		this.embeds.set($.embeds);
+		this.attachments.set($.attachments);
+		this.stickers.set($.sticker_items);
+		this.reference = $.message_reference;
+	}
+
+	delete() {
+		return this.$channel.Request.delete(`channels/${this.$channel.id}/messages/${this.id}`, {});
+	}
+
+	pin(put = true) {
+		return this.$channel.Request[put ? "put" : "delete"](
+			`channels/${this.$channel.id}/pins/${this.id}`,
+			{}
+		);
+	}
+
+	unpin(put = false) {
+		return this.pin(put);
+	}
+
+	wouldPing() {
+		return false;
+	}
+}
+
+class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordMessage<T>> {}
+
 class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChannelBase<T> {
 	declare type: TextChannelType;
+
+	declare Request: DiscordRequest;
+
+	messages = new MessagesJar<T>();
 
 	constructor(props: T) {
 		super(props);

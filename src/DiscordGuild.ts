@@ -7,7 +7,7 @@ import {
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
 import { DiscordGuildSettingsJar, DiscordUser } from "./DiscordClient";
-import { WritableStore, toVoid, Jar } from "./lib/utils";
+import { WritableStore, toVoid, Jar, spread } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
@@ -285,7 +285,7 @@ export class DiscordGuild extends WritableStore<
 								new DiscordGuildTextChannel<_channelType>(props, a.type, this, a.id)
 							);
 						} else {
-							const updater = <T>(prev: T) => ({ ...prev, ...props });
+							const updater = spread(props);
 
 							// if new state has array, then use deepEqual comparison
 							if (props.permission_overwrites) (has as _has).deepUpdate(updater);

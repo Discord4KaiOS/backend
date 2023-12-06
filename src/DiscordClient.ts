@@ -28,7 +28,7 @@ import {
 	DiscordGuildChannelCategory,
 	DiscordGuildTextChannel,
 } from "./DiscordChannels";
-import { WritableStore, Jar } from "./lib/utils";
+import { WritableStore, Jar, spread } from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
@@ -40,7 +40,7 @@ class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	insert(profile: APIGuildMember, guild: DiscordGuild) {
 		const has = this.get(guild.id);
 		if (has) {
-			const updater = (p: DiscordServerProfile["value"]) => ({ ...p, ...profile });
+			const updater = spread(profile);
 			// roles is the only part that needs to be recursively checked
 			if (profile.roles) has.deepUpdate(updater);
 			else has.shallowUpdate(updater);
@@ -109,7 +109,32 @@ class RelationshipsJar extends Jar<DiscordRelationship> {
 	}
 }
 
-class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {}
+class SortedDMs extends WritableStore<Array<DiscordDMChannel | DiscordGroupDMChannel>> {
+	constructor(public $: DMsJar) {
+		super([]);
+	}
+
+	/**
+	 * refresh every time a new message is received
+	 */
+	refresh() {
+		this.shallowSet(this.$.toSorted());
+	}
+}
+
+class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
+	sorted = new SortedDMs(this);
+
+	toSorted() {
+		const all = this.list();
+
+		all.sort(
+			(a, b) => Number(b.value.last_message_id || b.id) - Number(a.value.last_message_id || a.id)
+		);
+		// all.sort((a, b) => Number(b.value.last_message_id || 0) - Number(a.value.last_message_id || 0));
+		return all;
+	}
+}
 
 class GuildsJar extends Jar<DiscordGuild> {
 	findChannelById(id: Snowflake) {
@@ -182,7 +207,7 @@ export class DiscordClientReady {
 			const _recipients = r.recipients?.map((u) => this.users.get(u.id)!) || [];
 
 			if (has) {
-				has.shallowUpdate((e) => ({ ...e, ...obj }));
+				has.shallowUpdate(spread(obj));
 
 				has.recipients.shallowSet(_recipients);
 			} else {
@@ -199,6 +224,7 @@ export class DiscordClientReady {
 					);
 					this.dms.add(r.id, groupDM);
 				}
+				this.dms.sorted.refresh();
 			}
 		});
 	}
@@ -355,13 +381,15 @@ export class DiscordClientReady {
 		ready.read_state.forEach((rs) => {
 			this.readStates.add(rs.id, new DiscordReadState(rs));
 		});
-		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id, ack_type }) => {
-			this.readStates.updateCount(channel_id, mention_count, message_id);
-		});
+
 		Gateway.on("t:channel_unread_update", (event) => {
 			event.channel_unread_updates.forEach((state) => {
 				this.readStates.updateCount(state.id, state.mention_count, state.last_message_id);
 			});
+		});
+
+		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id, ack_type }) => {
+			this.readStates.updateCount(channel_id, mention_count, message_id);
 		});
 	}
 
@@ -370,7 +398,7 @@ export class DiscordClientReady {
 		// user object from API for current user lacks some properties
 
 		if (has) {
-			const updater = <T>(u: T) => ({ ...u, ...user });
+			const updater = spread(user);
 
 			// use deep comparison when decoration is present
 			if (user.avatar_decoration_data) {

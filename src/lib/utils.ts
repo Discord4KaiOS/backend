@@ -120,6 +120,10 @@ export const deepEqual = (a: any, b: any): boolean => {
 	return keys.every((k) => deepEqual(a[k], b[k]));
 };
 
+export function spread<U>(obj: U) {
+	return <T>(t: T) => ({ ...t, ...obj });
+}
+
 export class WritableStore<T> {
 	set: (this: void, value: T) => void;
 	update: (this: void, updater: Updater<T>) => void;
