@@ -303,4 +303,29 @@ export class DiscordGuild extends WritableStore<
 	get settings() {
 		return this.$guildSettings.get(this.id)!;
 	}
+
+	/**
+	 * undocumented "Lazy Guilds" api, it will request for members and other state changes for the guild
+	 */
+	lazy(user_ids?: string[]) {
+		this.Gateway.send({
+			op: 14,
+			d: {
+				activities: true,
+				guild_id: this.id,
+				threads: false,
+				typing: true,
+			},
+		});
+		this.Gateway.send({
+			op: 8,
+			d: {
+				guild_id: [this.id],
+				query: "",
+				limit: 100,
+				presences: false,
+				user_ids,
+			},
+		});
+	}
 }

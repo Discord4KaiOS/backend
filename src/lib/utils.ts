@@ -203,3 +203,10 @@ export function toVoid<T>(obj: T): T {
 
 	return obj;
 }
+
+export function toQuery(obj: Record<string, any> = {}) {
+	return Object.keys(obj)
+		.filter((a) => obj[a] != null)
+		.map((key) => `${key}=${encodeURIComponent(obj[key])}`)
+		.join("&");
+}

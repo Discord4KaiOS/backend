@@ -12,7 +12,7 @@ import {
 import { DiscordUser } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { Jar, WritableStore } from "./lib/utils";
+import { Jar, WritableStore, toQuery } from "./lib/utils";
 import { DiscordGuild } from "./DiscordGuild";
 
 export function generateNonce() {
@@ -118,7 +118,7 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 		return this.pin(put);
 	}
 
-	wouldPing() {
+	wouldPing(...args: any[]) {
 		return false;
 	}
 }
@@ -170,6 +170,10 @@ class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChann
 		form.append("payload_json", JSON.stringify(obj));
 
 		return this.Request.post(url, { data: form });
+	}
+
+	getMessages(query: { limit?: number; before?: string; after?: string; around?: string }) {
+		return this.Request.get<APIMessage[]>(`channels/${this.id}/messages?` + toQuery(query), {});
 	}
 }
 
