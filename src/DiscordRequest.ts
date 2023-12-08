@@ -24,7 +24,7 @@ export class ResponseError extends Error {
 	}
 }
 
-class Response<T = any> {
+export class Response<T = any> {
 	response: () => Promise<T>;
 
 	constructor(public xhr: XMLHttpRequest) {
@@ -43,7 +43,7 @@ class Response<T = any> {
 	}
 }
 
-class ResponsePost<T> extends EventEmitter {
+export class ResponsePost<T> extends EventEmitter {
 	response: () => Promise<T>;
 
 	constructor(resp: Response<T>) {

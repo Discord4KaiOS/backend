@@ -20,13 +20,14 @@ import {
 	GuildTextChannelType,
 	Snowflake,
 	ChannelType,
-	APIUser,
+	APIMessage,
 } from "discord-api-types/v10";
 import {
 	DiscordDMChannel,
 	DiscordGroupDMChannel,
 	DiscordGuildChannelCategory,
 	DiscordGuildTextChannel,
+	MessagesJar,
 } from "./DiscordChannels";
 import { WritableStore, Jar, spread } from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
@@ -54,9 +55,12 @@ class ServerProfilesJar extends Jar<DiscordServerProfile> {
 }
 export class DiscordUser extends WritableStore<ClientAPIUser> {
 	id: string;
-	constructor(public $: ClientAPIUser, private $relationships: RelationshipsJar) {
+	$users: UsersJar;
+
+	constructor(public $: ClientAPIUser, public $relationships: RelationshipsJar) {
 		super($);
 		this.id = $.id;
+		this.$users = $relationships.$client.users;
 	}
 
 	get relationship() {
@@ -71,7 +75,7 @@ export class DiscordRelationship extends WritableStore<{
 	nickname: string | null;
 }> {
 	id: string;
-	constructor(initial: ClientRelationship, private $users: Jar<DiscordUser>) {
+	constructor(initial: ClientRelationship, private $users: UsersJar) {
 		super({ type: initial.type, nickname: initial.nickname });
 		this.id = initial.id;
 	}
@@ -81,7 +85,11 @@ export class DiscordRelationship extends WritableStore<{
 	}
 }
 
-class UsersJar extends Jar<DiscordUser> {}
+export class UsersJar extends Jar<DiscordUser> {
+	constructor(public $client: DiscordClientReady) {
+		super();
+	}
+}
 
 class RelationshipsJar extends Jar<DiscordRelationship> {
 	constructor(public $client: DiscordClientReady) {
@@ -171,7 +179,7 @@ class ChannelOverridesJar extends Jar<DiscordChannelOverride> {
 export class DiscordGuildSettingsJar extends Jar<DiscordGuildSetting, string | null> {}
 
 export class DiscordClientReady {
-	users = new UsersJar();
+	users = new UsersJar(this);
 	relationships = new RelationshipsJar(this);
 	dms = new DMsJar();
 	guilds = new GuildsJar();
@@ -180,6 +188,8 @@ export class DiscordClientReady {
 
 	static logger = new Logger("DiscordClientReady");
 	config: Config;
+
+	logger = new Logger("DiscordClientReady");
 
 	close() {
 		this.Gateway.close();
@@ -253,6 +263,9 @@ export class DiscordClientReady {
 		this.config = config;
 		if (!config.client) throw Error("DiscordClient not initialized!");
 
+		const currentJarID = this.users.id;
+		Jar.setConfigByID(currentJarID, config);
+
 		this.handleRelationships(...ready.relationships);
 
 		config.user_id = ready.user.id;
@@ -272,13 +285,14 @@ export class DiscordClientReady {
 			});
 		});
 
+		/// ANCHOR: guild settings events
 		this.handleGuildSettings(...ready.user_guild_settings);
 		Gateway.on("t:user_guild_settings_update", (evt: ClientUserGuildSetting) =>
 			this.handleGuildSettings(evt)
 		);
 
+		/// ANCHOR: relationship events
 		const handleRelationship = (evt: ClientRelationship) => this.handleRelationships(evt);
-
 		Gateway.on("t:relationship_update", handleRelationship);
 		Gateway.on("t:relationship_add", handleRelationship);
 		Gateway.on("t:relationship_remove", (evt) => {
@@ -287,8 +301,8 @@ export class DiscordClientReady {
 
 		console.log(ready);
 
+		/// ANCHOR: channel events
 		this.handleDMChannels(...ready.private_channels);
-
 		const handleChannels = (channel: APIChannel) => {
 			switch (channel.type) {
 				case ChannelType.DM:
@@ -324,7 +338,6 @@ export class DiscordClientReady {
 					break;
 			}
 		};
-
 		Gateway.on("t:channel_create", handleChannels);
 		Gateway.on("t:channel_update", handleChannels);
 		Gateway.on("t:channel_delete", (channel) => {
@@ -388,9 +401,61 @@ export class DiscordClientReady {
 			});
 		});
 
-		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id, ack_type }) => {
+		/// ANCHOR: message events
+		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id }) => {
 			this.readStates.updateCount(channel_id, mention_count, message_id);
 		});
+
+		const getMessagesJar = (channel_id: string, guild_id?: string) => {
+			if (guild_id) {
+				const channel = this.guilds.get(guild_id)?.channels.get(channel_id);
+				if (channel && "messages" in channel) return channel.messages;
+			}
+
+			const fromDMs = this.dms.get(channel_id)?.messages;
+			if (fromDMs) return fromDMs;
+
+			// this should not be needed
+			const findChannel = this.guilds.findChannelById(channel_id);
+			if (findChannel && "messages" in findChannel) return findChannel.messages;
+
+			return null;
+		};
+		const errJarNotFound = (m: Partial<APIMessage>, type: string) => {
+			const text = `message_${type}: channel not found or invalid`;
+			this.logger.err(text, m)();
+			throw new Error(text);
+		};
+
+		Gateway.on("t:message_create", (m) => {
+			const mJar = getMessagesJar(m.channel_id, m.guild_id);
+			if (!mJar) errJarNotFound(m, "create");
+
+			mJar?.append(m);
+		});
+		Gateway.on("t:message_update", (m) => {
+			const mJar = getMessagesJar(m.channel_id, m.guild_id);
+			if (!mJar) errJarNotFound(m, "update");
+
+			mJar?.update(m);
+		});
+		Gateway.on("t:message_delete", (evt) => {
+			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
+			if (!mJar) errJarNotFound(evt, "delete");
+
+			mJar?.remove(evt.id);
+		});
+		Gateway.on("t:message_delete_bulk", (evt) => {
+			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
+			if (!mJar) errJarNotFound(evt, "delete_bulk");
+
+			mJar?.removeBulk(evt.ids);
+		});
+		// TODO: handle message reactions
+
+		/// ANCHOR: Typing start
+		/// TODO: typing start
+		Gateway.on("t:typing_start", (evt) => {});
 	}
 
 	addUser(user: ClientAPIUser) {

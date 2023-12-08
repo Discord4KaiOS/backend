@@ -1,4 +1,5 @@
 import Logger from "../Logger";
+import { Config } from "../config";
 import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 
@@ -35,6 +36,20 @@ export class Jar<T, R = string, M extends JarEventMap<R, T> = JarEventMap<R, T>>
 
 	static offAllByID(id: symbol) {
 		Jar.emitter.emit(JarIDEvent, id);
+	}
+
+	static _configs_: Record<symbol, Config> = {};
+
+	static setConfigByID(id: symbol, config: Config) {
+		Jar._configs_[id] = config;
+	}
+
+	_config_<K extends keyof Config>(key: K): Config[K] {
+		const config = Jar._configs_[this.id];
+		if (!config) throw new Error("No config found");
+		const val = config[key];
+		if (val === undefined) throw new Error(`No config found for ${key}`);
+		return config[key]!;
 	}
 
 	logger?: Logger;

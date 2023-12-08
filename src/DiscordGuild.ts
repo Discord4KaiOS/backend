@@ -6,7 +6,7 @@ import {
 	Snowflake,
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
-import { DiscordGuildSettingsJar, DiscordUser } from "./DiscordClient";
+import { DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
 import { WritableStore, toVoid, Jar, spread } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
@@ -155,7 +155,7 @@ export class DiscordGuild extends WritableStore<
 		public $: ClientGuild,
 		public Request: DiscordRequest,
 		public Gateway: Gateway,
-		public $users: Jar<DiscordUser>,
+		public $users: UsersJar,
 		public $guildSettings: DiscordGuildSettingsJar
 	) {
 		super({

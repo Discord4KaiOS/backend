@@ -3,6 +3,7 @@ import {
 	GatewayMessageDeleteBulkDispatchData,
 	GatewayMessageDeleteDispatchData,
 	GatewayMessageUpdateDispatchData,
+	GatewayTypingStartDispatchData,
 } from "discord-api-types/v10";
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
@@ -87,6 +88,7 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:message_update": [GatewayMessageUpdateDispatchData];
 	"t:message_delete": [GatewayMessageDeleteDispatchData];
 	"t:message_delete_bulk": [GatewayMessageDeleteBulkDispatchData];
+	"t:typing_start": [GatewayTypingStartDispatchData];
 	close: [];
 	[x: string]: any[];
 	[x: symbol]: any[];

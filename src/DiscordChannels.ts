@@ -9,10 +9,10 @@ import {
 	TextChannelType,
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
-import { DiscordUser } from "./DiscordClient";
+import { DiscordUser, UsersJar } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { Jar, WritableStore, toQuery } from "./lib/utils";
+import { Jar, WritableStore, toQuery, toVoid } from "./lib/utils";
 import { DiscordGuild } from "./DiscordGuild";
 
 export function generateNonce() {
@@ -23,12 +23,12 @@ interface DiscordChannelBaseProps {
 	flags?: ChannelFlags;
 }
 
-class DiscordChannelBase<T extends DiscordChannelBaseProps> extends WritableStore<T> {
-	type!: ChannelType;
-	id!: Snowflake;
+abstract class DiscordChannelBase<T extends DiscordChannelBaseProps> extends WritableStore<T> {
+	abstract type: ChannelType;
+	abstract id: Snowflake;
 
-	Request?: DiscordRequest;
-	Gateway?: Gateway;
+	abstract Request: DiscordRequest;
+	abstract Gateway: Gateway;
 
 	constructor(props: T) {
 		super(props);
@@ -43,12 +43,17 @@ interface DiscordChannelCategoryProps extends DiscordChannelBaseProps {
 export class DiscordGuildChannelCategory extends DiscordChannelBase<DiscordChannelCategoryProps> {
 	type = ChannelType.GuildCategory;
 
+	Request: DiscordRequest;
+	Gateway: Gateway;
+
 	constructor(
 		initialProps: DiscordChannelCategoryProps,
 		public id: Snowflake,
 		public guild: DiscordGuild
 	) {
 		super({ name: initialProps.name, position: initialProps.position });
+		this.Request = guild.Request;
+		this.Gateway = guild.Gateway;
 	}
 }
 
@@ -67,16 +72,22 @@ interface DiscordTextChannelProps extends DiscordChannelBaseProps {
 	last_pin_timestamp?: string | null;
 }
 
+let preserveDeleted = false;
+
 /**
- * TODO:
- * - DiscordReactions/DiscordReaction class
+ * TODO: DiscordReactions/DiscordReaction class
  */
 export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableStore<
-	Pick<APIMessage, "content" | "pinned"> & {
-		edited_timestamp?: null | Date;
-	}
+	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
 > {
-	static preserveDeleted = false;
+	static get preserveDeleted() {
+		return preserveDeleted;
+	}
+
+	static set preserveDeleted(val) {
+		preserveDeleted = val;
+	}
+
 	deleted = new WritableStore(false);
 
 	embeds = new WritableStore<APIMessage["embeds"]>([]);
@@ -84,15 +95,17 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 	stickers = new WritableStore<APIMessage["sticker_items"]>([]);
 	reference?: APIMessageReference;
 	id: string;
+	user_id: string;
 
 	constructor(
 		public $: APIMessage,
 		public author: DiscordUser,
-		public $channel: DiscordTextChannel<T>
+		public $channel: DiscordTextChannel<T>,
+		public $guild: DiscordGuild | null = null
 	) {
 		super({
 			content: $.content,
-			edited_timestamp: $.edited_timestamp ? new Date($.edited_timestamp) : null,
+			edited_timestamp: $.edited_timestamp,
 			pinned: $.pinned,
 		});
 
@@ -101,6 +114,8 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 		this.attachments.set($.attachments);
 		this.stickers.set($.sticker_items);
 		this.reference = $.message_reference;
+
+		this.user_id = $channel.Request.config.user_id!;
 	}
 
 	delete() {
@@ -118,33 +133,277 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 		return this.pin(put);
 	}
 
-	wouldPing(...args: any[]) {
+	/**
+	 * TODO: figure out how message editing actually works
+	 */
+	edit(content: string, opts: any = {}) {
+		return this.$channel.Request.patch(`channels/${this.$channel.id}/messages/${this.id}`, {
+			data: { content, ...opts },
+		});
+	}
+
+	reply(content: string, opts: Partial<CreateMessageParams> = {}, attachments?: File[] | Blob[]) {
+		return this.$channel.sendMessage(
+			content,
+			{
+				...opts,
+				message_reference: {
+					message_id: this.id,
+					channel_id: this.$channel.id,
+				},
+			},
+			attachments
+		);
+	}
+
+	wouldPing() {
+		const userID = this.user_id;
+
+		const { mention_everyone, mentions, mention_roles } = this.$;
+
+		const initialResult = Boolean(mention_everyone || mentions?.find((a) => a.id == userID));
+
+		if (initialResult) return true;
+
+		if (this.$guild && mention_roles) {
+			const roles = this.$guild.$users.get(userID)?.profiles.get(this.$guild.id)?.value.roles;
+			if (roles) return Boolean(mention_roles.some((r) => roles.includes(r)));
+		}
+
 		return false;
 	}
 }
 
-class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordMessage<T>> {}
+function minutesDiff(performance_now: number) {
+	return Math.floor(Math.abs(performance.now() - performance_now) / 1000 / 60);
+}
 
-class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChannelBase<T> {
-	declare type: TextChannelType;
+export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordMessage<T>> {
+	constructor(public $channel: DiscordTextChannel<T>) {
+		super();
+	}
 
-	declare Request: DiscordRequest;
+	lastPush = performance.now();
+	state = new WritableStore<DiscordMessage<T>[]>([]);
 
-	messages = new MessagesJar<T>();
+	private _messageType = DiscordMessage;
+
+	newMessage(message: APIMessage) {
+		const user = this.$channel.$users.$client.addUser(message.author);
+		const m = new this._messageType(message, user, this.$channel);
+		return m;
+	}
+
+	/**
+	 * run this every time the state is being accessed
+	 */
+	async refresh() {
+		const currentState = this.state.value;
+		// if it's been more than 3 minutes since the last time gateway pushed messages,
+		// we have to check if there's been new messages that hasn't been pushed
+		if (minutesDiff(this.lastPush) > 3 && currentState.length > 0) {
+			const mResp = this.$channel.getMessages({ limit: 100, after: currentState.at(-1)!.id });
+			const messages = await mResp.response();
+
+			this.lastPush = performance.now();
+
+			if (messages.length) this.converge(messages);
+		}
+	}
+
+	setMessageType(type: typeof DiscordMessage) {
+		this._messageType = type;
+	}
+
+	update(message: Partial<APIMessage>) {
+		const has = this.get(message.id!);
+		if (!has) return null;
+
+		has.shallowSet(
+			toVoid({
+				content: message.content!,
+				edited_timestamp: message.edited_timestamp!,
+				pinned: message.pinned!,
+			})
+		);
+
+		return has;
+	}
+
+	/**
+	 * used when you append from a gateway event
+	 */
+	append(message: APIMessage) {
+		// just in case
+		const attemptToUpdate = this.update(message);
+
+		// if an update was successful, then return the update
+		if (attemptToUpdate) {
+			return attemptToUpdate;
+		}
+
+		const m = this.newMessage(message);
+		this.state.update((s) => s.concat(m));
+		this.set(m.id, m);
+
+		this.lastPush = performance.now();
+		return m;
+	}
+
+	converge(messages: APIMessage[]) {
+		// filtered only contains messages not found in the newer batch
+		const filtered = this.state.value.filter((m) => {
+			const found = messages.find((mm) => mm.id === m.id);
+			if (found) return false;
+		});
+
+		messages.forEach((m) => {
+			const has = this.get(m.id);
+
+			if (has) {
+				// if message is already present in the jar, update it
+				has.shallowSet({
+					content: m.content,
+					edited_timestamp: m.edited_timestamp,
+					pinned: m.pinned,
+				});
+
+				filtered.push(has);
+			} else {
+				const message = this.newMessage(m);
+				this.set(m.id, message);
+
+				filtered.push(message);
+			}
+		});
+
+		// sort by ID, or maybe by timestamp?
+		filtered.sort((a, b) => +a.id - +b.id);
+
+		this.state.shallowSet(filtered);
+	}
+
+	async loadMessages(limit = 15) {
+		const currentState = this.state.value;
+
+		// if we currently have more messages than the limit, we have to fetch more
+		if (currentState.length >= limit) {
+			const messages = await this.$channel
+				.getMessages({ before: currentState[0].id, limit })
+				.response();
+			this.converge(messages);
+			return messages;
+		} else {
+			const mResp = this.$channel.getMessages({ limit });
+			const messages = await mResp.response();
+			this.converge(messages);
+			return messages;
+		}
+	}
+
+	remove(id: Snowflake) {
+		const has = this.get(id);
+		if (!has) return;
+
+		if (DiscordMessage.preserveDeleted) {
+			has.deleted.set(true);
+		} else {
+			const currentState = this.state.value;
+			currentState.splice(currentState.indexOf(has), 1);
+			this.state.set(currentState.slice(0));
+			this.delete(id);
+		}
+	}
+
+	removeBulk(ids: Snowflake[]) {
+		const currentState = this.state.value;
+
+		ids.forEach((id) => {
+			// the code used if preserved is more efficient
+			if (DiscordMessage.preserveDeleted) this.remove(id);
+			else {
+				const has = this.get(id);
+				if (!has) return;
+
+				currentState.splice(currentState.indexOf(has), 1);
+				this.delete(id);
+			}
+		});
+
+		this.state.set(currentState.slice(0));
+	}
+}
+
+class TypingState<T extends DiscordTextChannelProps> extends WritableStore<DiscordUser[]> {
+	user: DiscordUser;
+
+	constructor(public $channel: DiscordTextChannel<T>) {
+		super([]);
+
+		this.user = $channel.$users.get($channel.Request.config.user_id!)!;
+	}
+
+	users = new Set<DiscordUser>();
+	timeouts = new Map<DiscordUser, ReturnType<typeof setTimeout>>();
+
+	sync() {
+		this.shallowSet([...this.users]);
+	}
+
+	add(user: DiscordUser) {
+		const previousTimeout = this.timeouts.get(user);
+		clearTimeout(previousTimeout!);
+
+		this.users.add(user);
+		this.sync();
+
+		this.timeouts.set(
+			user,
+			setTimeout(() => {
+				this.users.delete(user);
+				this.sync();
+			}, 9000)
+		);
+	}
+
+	/**
+	 * use this to handle typing for the current user
+	 */
+	debounce() {
+		if (this.users.has(this.user)) return;
+
+		this.$channel.Request.post(`channels/${this.$channel.id}/typing`, {});
+		this.add(this.user);
+	}
+}
+
+abstract class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChannelBase<T> {
+	abstract type: TextChannelType;
+	abstract id: Snowflake;
+
+	abstract Request: DiscordRequest;
+	abstract Gateway: Gateway;
+
+	abstract $users: UsersJar;
+	messages = new MessagesJar<T>(this);
+
+	typingState = new TypingState<T>(this);
+
+	lastMessageID = new WritableStore<Snowflake | null>(null);
 
 	constructor(props: T) {
 		super(props);
 	}
 
 	sendMessage(
-		message: string = "",
+		content: string = "",
 		opts: Partial<CreateMessageParams> = {},
 		attachments?: File[] | Blob[]
 	) {
-		if (!message && !attachments) throw new Error("Message or attachments must be provided");
+		if (!content && !attachments) throw new Error("Message or attachments must be provided");
 
 		const obj: CreateMessageParams = {
-			content: message.trim(),
+			content: content.trim(),
 			nonce: generateNonce(),
 			...opts,
 		};
@@ -174,6 +433,12 @@ class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChann
 
 	getMessages(query: { limit?: number; before?: string; after?: string; around?: string }) {
 		return this.Request.get<APIMessage[]>(`channels/${this.id}/messages?` + toQuery(query), {});
+	}
+
+	ack() {
+		return this.Request.post(`channels/${this.id}/messages/${this.lastMessageID.value}/ack`, {
+			data: { token: "null" },
+		});
 	}
 }
 
@@ -216,10 +481,15 @@ export class DiscordGuildTextChannel<
 	R extends GuildTextChannelType,
 	T extends DiscordGuildTextChannelProps = DiscordGuildTextChannelProps
 > extends DiscordTextChannel<T> {
+	Request: DiscordRequest;
+	Gateway: Gateway;
+	$users: UsersJar;
+
 	constructor(props: T, public type: R, public guild: DiscordGuild, public id: Snowflake) {
 		super(props);
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
+		this.$users = guild.$users;
 	}
 
 	favorite = false;
@@ -233,17 +503,35 @@ export class DiscordGuildTextChannel<
 	}
 }
 
+class DiscordDirectMessage<T extends DiscordDMBaseProps> extends DiscordMessage<T> {
+	wouldPing(appended: boolean = false) {
+		const would = super.wouldPing();
+
+		// TODO: implement DM pings
+
+		return would;
+	}
+}
+
 interface DiscordDMBaseProps extends DiscordTextChannelProps {}
-class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextChannel<T> {
+abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextChannel<T> {
 	recipients = new WritableStore<DiscordUser[]>([]);
+
+	abstract type: TextChannelType;
+	abstract id: Snowflake;
+	abstract Request: DiscordRequest;
+	abstract Gateway: Gateway;
+	abstract $users: UsersJar;
 
 	constructor(props: T) {
 		super(props);
+		this.messages.setMessageType(DiscordDirectMessage);
 	}
 }
 
 export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	type = ChannelType.DM as TextChannelType;
+	$users: UsersJar;
 
 	constructor(
 		initialProps: Partial<DiscordDMBaseProps>,
@@ -254,6 +542,7 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
+		this.$users = recipients[0].$relationships.$client.users;
 	}
 }
 
@@ -281,6 +570,7 @@ interface DiscordGroupDMChannelProps extends DiscordDMBaseProps {
 }
 export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelProps> {
 	type = ChannelType.GroupDM as TextChannelType;
+	$users: UsersJar;
 
 	constructor(
 		initialProps: Partial<DiscordGroupDMChannelProps>,
@@ -291,5 +581,6 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
+		this.$users = recipients[0].$relationships.$client.users;
 	}
 }
