@@ -335,12 +335,12 @@ export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordM
 }
 
 class TypingState<T extends DiscordTextChannelProps> extends WritableStore<DiscordUser[]> {
-	user: DiscordUser;
-
 	constructor(public $channel: DiscordTextChannel<T>) {
 		super([]);
+	}
 
-		this.user = $channel.$users.get($channel.Request.config.user_id!)!;
+	getUser() {
+		return this.$channel.$users.get(this.$channel.Request.config.user_id!)!;
 	}
 
 	users = new Set<DiscordUser>();
@@ -370,10 +370,11 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 	 * use this to handle typing for the current user
 	 */
 	debounce() {
-		if (this.users.has(this.user)) return;
+		const user = this.getUser();
+		if (this.users.has(user)) return;
 
 		this.$channel.Request.post(`channels/${this.$channel.id}/typing`, {});
-		this.add(this.user);
+		this.add(user);
 	}
 }
 
