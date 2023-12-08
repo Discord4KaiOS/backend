@@ -30,7 +30,7 @@ import {
 	DiscordGuildTextChannel,
 	MessagesJar,
 } from "./DiscordChannels";
-import { WritableStore, Jar, spread } from "./lib/utils";
+import { WritableStore, Jar, spread, convertSnowflakeToDate } from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
@@ -131,6 +131,10 @@ class SortedDMs extends WritableStore<Array<DiscordDMChannel | DiscordGroupDMCha
 	}
 }
 
+function snowflakeToDateNumber(id: string) {
+	return convertSnowflakeToDate(id).getTime();
+}
+
 class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
 	sorted = new SortedDMs(this);
 
@@ -138,7 +142,9 @@ class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
 		const all = this.list();
 
 		all.sort(
-			(a, b) => Number(b.lastMessageID.value || b.id) - Number(a.lastMessageID.value || a.id)
+			(a, b) =>
+				snowflakeToDateNumber(b.lastMessageID.value || b.id) -
+				snowflakeToDateNumber(a.lastMessageID.value || a.id)
 		);
 		// all.sort((a, b) => Number(b.value.last_message_id || 0) - Number(a.value.last_message_id || 0));
 		return all;

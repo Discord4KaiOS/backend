@@ -1,7 +1,9 @@
+import { Snowflake } from "discord-api-types/globals";
 import Logger from "../Logger";
 import { Config } from "../config";
 import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
+import JSBI from "jsbi";
 
 let currentJarID = Symbol("jarID");
 
@@ -225,3 +227,16 @@ export function toQuery(obj: Record<string, any> = {}) {
 		.map((key) => `${key}=${encodeURIComponent(obj[key])}`)
 		.join("&");
 }
+
+export const DISCORD_EPOCH = 1420070400000;
+
+// Converts a snowflake ID string into a JS Date object using the provided epoch (in ms), or Discord's epoch if not provided
+export function convertSnowflakeToDate(snowflake: Snowflake, epoch = DISCORD_EPOCH) {
+	// Convert snowflake to BigInt to extract timestamp bits
+	// https://discord.com/developers/docs/reference#snowflakes
+	const milliseconds = JSBI.signedRightShift(JSBI.BigInt(snowflake), JSBI.BigInt(22));
+
+	return new Date(JSBI.toNumber(milliseconds) + epoch);
+}
+
+convertSnowflakeToDate.DISCORD_EPOCH = DISCORD_EPOCH;
