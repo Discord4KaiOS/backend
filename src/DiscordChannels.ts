@@ -339,8 +339,12 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 		super([]);
 	}
 
+	private _user?: DiscordUser;
+
 	getUser() {
-		return this.$channel.$users.get(this.$channel.Request.config.user_id!)!;
+		return (
+			this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!)
+		);
 	}
 
 	users = new Set<DiscordUser>();
