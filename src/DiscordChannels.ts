@@ -495,6 +495,7 @@ export class DiscordGuildTextChannel<
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
 		this.$users = guild.$users;
+		this.lastMessageID.set(props.last_message_id || null);
 	}
 
 	favorite = false;
@@ -531,6 +532,7 @@ abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextCh
 	constructor(props: T) {
 		super(props);
 		this.messages.setMessageType(DiscordDirectMessage);
+		this.lastMessageID.set(props.last_message_id || null);
 	}
 }
 
