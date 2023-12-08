@@ -24,6 +24,7 @@ import {
 } from "discord-api-types/v10";
 import {
 	DiscordDMChannel,
+	DiscordDirectMessage,
 	DiscordGroupDMChannel,
 	DiscordGuildChannelCategory,
 	DiscordGuildTextChannel,
@@ -137,7 +138,7 @@ class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
 		const all = this.list();
 
 		all.sort(
-			(a, b) => Number(b.value.last_message_id || b.id) - Number(a.value.last_message_id || a.id)
+			(a, b) => Number(b.lastMessageID.value || b.id) - Number(a.lastMessageID.value || a.id)
 		);
 		// all.sort((a, b) => Number(b.value.last_message_id || 0) - Number(a.value.last_message_id || 0));
 		return all;
@@ -440,7 +441,11 @@ export class DiscordClientReady {
 			const mJar = getMessagesJar(m.channel_id, m.guild_id);
 			if (!mJar) errJarNotFound(m, "create");
 
-			mJar?.append(m);
+			const mm = mJar!.append(m);
+			mm.$channel.lastMessageID.set(m.id);
+			if (mm instanceof DiscordDirectMessage) {
+				this.dms.sorted.refresh();
+			}
 		});
 		Gateway.on("t:message_update", (m) => {
 			const mJar = getMessagesJar(m.channel_id, m.guild_id);

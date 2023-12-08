@@ -508,7 +508,7 @@ export class DiscordGuildTextChannel<
 	}
 }
 
-class DiscordDirectMessage<T extends DiscordDMBaseProps> extends DiscordMessage<T> {
+export class DiscordDirectMessage<T extends DiscordDMBaseProps> extends DiscordMessage<T> {
 	wouldPing(appended: boolean = false) {
 		const would = super.wouldPing();
 
