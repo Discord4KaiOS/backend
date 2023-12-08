@@ -406,18 +406,27 @@ export class DiscordClientReady {
 			this.readStates.updateCount(channel_id, mention_count, message_id);
 		});
 
-		const getMessagesJar = (channel_id: string, guild_id?: string) => {
+		const findChannel = (channel_id: string, guild_id?: string) => {
 			if (guild_id) {
-				const channel = this.guilds.get(guild_id)?.channels.get(channel_id);
-				if (channel && "messages" in channel) return channel.messages;
+				const guild = this.guilds.get(guild_id);
+				if (guild) return guild.channels.get(channel_id);
 			}
 
-			const fromDMs = this.dms.get(channel_id)?.messages;
+			const fromDMs = this.dms.get(channel_id);
+
 			if (fromDMs) return fromDMs;
 
 			// this should not be needed
 			const findChannel = this.guilds.findChannelById(channel_id);
-			if (findChannel && "messages" in findChannel) return findChannel.messages;
+			if (findChannel) return findChannel;
+		};
+
+		const getMessagesJar = (channel_id: string, guild_id?: string) => {
+			const channel = findChannel(channel_id, guild_id);
+
+			if (channel && "messages" in channel) {
+				return channel.messages;
+			}
 
 			return null;
 		};
@@ -454,8 +463,18 @@ export class DiscordClientReady {
 		// TODO: handle message reactions
 
 		/// ANCHOR: Typing start
-		/// TODO: typing start
-		Gateway.on("t:typing_start", (evt) => {});
+		Gateway.on("t:typing_start", (evt) => {
+			const channel = findChannel(evt.channel_id, evt.guild_id);
+
+			if (!channel) {
+				this.logger.err("typing_start: channel not found or invalid", evt)();
+				return;
+			}
+
+			if ("typingState" in channel) {
+				channel.typingState.add(this.users.get(evt.user_id)!);
+			}
+		});
 	}
 
 	addUser(user: ClientAPIUser) {
