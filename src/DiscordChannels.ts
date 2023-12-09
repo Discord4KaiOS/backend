@@ -9,7 +9,13 @@ import {
 	TextChannelType,
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
-import { DiscordClientReady, DiscordGuildSetting, DiscordUser, UsersJar } from "./DiscordClient";
+import {
+	DiscordClientReady,
+	DiscordGuildSetting,
+	DiscordGuildSettingsJar,
+	DiscordUser,
+	UsersJar,
+} from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { Jar, WritableStore, toQuery, toVoid } from "./lib/utils";
@@ -541,7 +547,7 @@ abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextCh
 	abstract Request: DiscordRequest;
 	abstract Gateway: Gateway;
 	abstract $users: UsersJar;
-	abstract $dmSettings: DiscordGuildSetting;
+	abstract $guildSettings: DiscordGuildSettingsJar;
 
 	constructor(props: T) {
 		super(props);
@@ -550,7 +556,7 @@ abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextCh
 	}
 
 	isMuted() {
-		const override = this.$dmSettings.channelOverrides.get(this.id)!;
+		const override = this.$guildSettings.get(null)?.channelOverrides.get(this.id);
 		if (override) return override.value.muted;
 
 		return false;
@@ -568,7 +574,7 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 		recipients: DiscordUser[],
 		public Request: DiscordRequest,
 		public Gateway: Gateway,
-		public $dmSettings: DiscordGuildSetting
+		public $guildSettings: DiscordGuildSettingsJar
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
@@ -611,7 +617,7 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 		recipients: DiscordUser[],
 		public Request: DiscordRequest,
 		public Gateway: Gateway,
-		public $dmSettings: DiscordGuildSetting
+		public $guildSettings: DiscordGuildSettingsJar
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);

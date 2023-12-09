@@ -228,7 +228,6 @@ export class DiscordClientReady {
 
 				has.recipients.shallowSet(_recipients);
 			} else {
-				const dmSettings = this.guildSettings.get(null)!;
 				if (r.type === ChannelType.DM) {
 					const dm = new DiscordDMChannel(
 						obj,
@@ -236,7 +235,7 @@ export class DiscordClientReady {
 						_recipients,
 						this.Request,
 						this.Gateway,
-						dmSettings
+						this.guildSettings
 					);
 					this.dms.add(r.id, dm);
 				} else {
@@ -246,7 +245,7 @@ export class DiscordClientReady {
 						_recipients,
 						this.Request,
 						this.Gateway,
-						dmSettings
+						this.guildSettings
 					);
 					this.dms.add(r.id, groupDM);
 				}
@@ -458,10 +457,14 @@ export class DiscordClientReady {
 
 			const mm = mJar!.append(m);
 			mm.$channel.lastMessageID.set(m.id);
+
 			if (mm instanceof DiscordDirectMessage) {
 				this.dms.sorted.refresh();
 			}
-			if (mm.wouldPing(true)) mm.$channel.readState.increment();
+
+			if (mm.wouldPing()) {
+				mm.$channel.readState.increment();
+			}
 		});
 		Gateway.on("t:message_update", (m) => {
 			const mJar = getMessagesJar(m.channel_id, m.guild_id);
