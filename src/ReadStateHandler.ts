@@ -3,7 +3,14 @@ import Logger from "./Logger";
 import { ClientReadState } from "./lib/types";
 import { Jar, WritableStore } from "./lib/utils";
 
-export class DiscordReadState extends WritableStore<ClientReadState> {}
+export class DiscordReadState extends WritableStore<ClientReadState> {
+	increment(count = 1) {
+		this.shallowUpdate((s) => ({
+			...s,
+			mention_count: s.mention_count + count,
+		}));
+	}
+}
 
 export default class ReadStateHandler extends Jar<DiscordReadState> {
 	constructor(public $: DiscordClientReady) {

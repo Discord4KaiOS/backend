@@ -461,6 +461,7 @@ export class DiscordClientReady {
 			if (mm instanceof DiscordDirectMessage) {
 				this.dms.sorted.refresh();
 			}
+			if (mm.wouldPing(true)) mm.$channel.readState.increment();
 		});
 		Gateway.on("t:message_update", (m) => {
 			const mJar = getMessagesJar(m.channel_id, m.guild_id);

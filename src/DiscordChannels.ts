@@ -9,7 +9,7 @@ import {
 	TextChannelType,
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
-import { DiscordGuildSetting, DiscordUser, UsersJar } from "./DiscordClient";
+import { DiscordClientReady, DiscordGuildSetting, DiscordUser, UsersJar } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { Jar, WritableStore, toQuery, toVoid } from "./lib/utils";
@@ -390,6 +390,7 @@ abstract class DiscordTextChannel<T extends DiscordTextChannelProps> extends Dis
 	abstract Gateway: Gateway;
 
 	abstract $users: UsersJar;
+	abstract $client: DiscordClientReady;
 	messages = new MessagesJar<T>(this);
 
 	typingState = new TypingState<T>(this);
@@ -450,6 +451,10 @@ abstract class DiscordTextChannel<T extends DiscordTextChannelProps> extends Dis
 	isMuted() {
 		return false;
 	}
+
+	get readState() {
+		return this.$client.readStates.get(this.id)!;
+	}
 }
 
 interface DiscordGuildTextChannelProps extends DiscordTextChannelProps {
@@ -494,12 +499,14 @@ export class DiscordGuildTextChannel<
 	Request: DiscordRequest;
 	Gateway: Gateway;
 	$users: UsersJar;
+	$client: DiscordClientReady;
 
 	constructor(props: T, public type: R, public guild: DiscordGuild, public id: Snowflake) {
 		super(props);
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
 		this.$users = guild.$users;
+		this.$client = guild.$users.$client;
 		this.lastMessageID.set(props.last_message_id || null);
 	}
 
@@ -553,6 +560,7 @@ abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextCh
 export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	type = ChannelType.DM as TextChannelType;
 	$users: UsersJar;
+	$client: DiscordClientReady;
 
 	constructor(
 		initialProps: Partial<DiscordDMBaseProps>,
@@ -564,7 +572,9 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
-		this.$users = recipients[0].$relationships.$client.users;
+		const client = recipients[0].$relationships.$client;
+		this.$users = client.users;
+		this.$client = client;
 	}
 }
 
@@ -593,6 +603,7 @@ interface DiscordGroupDMChannelProps extends DiscordDMBaseProps {
 export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelProps> {
 	type = ChannelType.GroupDM as TextChannelType;
 	$users: UsersJar;
+	$client: DiscordClientReady;
 
 	constructor(
 		initialProps: Partial<DiscordGroupDMChannelProps>,
@@ -604,6 +615,8 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
-		this.$users = recipients[0].$relationships.$client.users;
+		const client = recipients[0].$relationships.$client;
+		this.$users = client.users;
+		this.$client = client;
 	}
 }
