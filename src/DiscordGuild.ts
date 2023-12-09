@@ -300,8 +300,10 @@ export class DiscordGuild extends WritableStore<
 		});
 	}
 
-	get settings() {
-		return this.$guildSettings.get(this.id)!;
+	isMuted() {
+		const settings = this.userSettings;
+		if (settings) return settings.value.muted;
+		return false;
 	}
 
 	/**

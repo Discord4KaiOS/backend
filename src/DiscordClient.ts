@@ -228,8 +228,16 @@ export class DiscordClientReady {
 
 				has.recipients.shallowSet(_recipients);
 			} else {
+				const dmSettings = this.guildSettings.get(null)!;
 				if (r.type === ChannelType.DM) {
-					const dm = new DiscordDMChannel(obj, r.id, _recipients, this.Request, this.Gateway);
+					const dm = new DiscordDMChannel(
+						obj,
+						r.id,
+						_recipients,
+						this.Request,
+						this.Gateway,
+						dmSettings
+					);
 					this.dms.add(r.id, dm);
 				} else {
 					const groupDM = new DiscordGroupDMChannel(
@@ -237,7 +245,8 @@ export class DiscordClientReady {
 						r.id,
 						_recipients,
 						this.Request,
-						this.Gateway
+						this.Gateway,
+						dmSettings
 					);
 					this.dms.add(r.id, groupDM);
 				}
@@ -473,7 +482,7 @@ export class DiscordClientReady {
 		});
 		// TODO: handle message reactions
 
-		/// ANCHOR: Typing start
+		// ANCHOR: Typing start
 		Gateway.on("t:typing_start", (evt) => {
 			const channel = findChannel(evt.channel_id, evt.guild_id);
 

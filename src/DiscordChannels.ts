@@ -9,7 +9,7 @@ import {
 	TextChannelType,
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
-import { DiscordUser, UsersJar } from "./DiscordClient";
+import { DiscordGuildSetting, DiscordUser, UsersJar } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { Jar, WritableStore, toQuery, toVoid } from "./lib/utils";
@@ -445,6 +445,11 @@ abstract class DiscordTextChannel<T extends DiscordTextChannelProps> extends Dis
 			data: { token: "null" },
 		});
 	}
+
+	// TODO: implement .isMuted() on DiscordTextChannel
+	isMuted() {
+		return false;
+	}
 }
 
 interface DiscordGuildTextChannelProps extends DiscordTextChannelProps {
@@ -510,12 +515,13 @@ export class DiscordGuildTextChannel<
 }
 
 export class DiscordDirectMessage<T extends DiscordDMBaseProps> extends DiscordMessage<T> {
-	wouldPing(appended: boolean = false) {
-		const would = super.wouldPing();
-
-		// TODO: implement DM pings
-
-		return would;
+	/**
+	 * @param appended - whether this function is being called because a new message was created
+	 */
+	wouldPing(appended = true) {
+		// if this was newly created and the channel is NOT muted, then ping
+		// else use the default implementation
+		return Boolean(appended && !this.$channel.isMuted()) || super.wouldPing();
 	}
 }
 
@@ -528,11 +534,19 @@ abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextCh
 	abstract Request: DiscordRequest;
 	abstract Gateway: Gateway;
 	abstract $users: UsersJar;
+	abstract $dmSettings: DiscordGuildSetting;
 
 	constructor(props: T) {
 		super(props);
 		this.messages.setMessageType(DiscordDirectMessage);
 		this.lastMessageID.set(props.last_message_id || null);
+	}
+
+	isMuted() {
+		const override = this.$dmSettings.channelOverrides.get(this.id)!;
+		if (override) return override.value.muted;
+
+		return false;
 	}
 }
 
@@ -545,7 +559,8 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 		public id: Snowflake,
 		recipients: DiscordUser[],
 		public Request: DiscordRequest,
-		public Gateway: Gateway
+		public Gateway: Gateway,
+		public $dmSettings: DiscordGuildSetting
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
@@ -584,7 +599,8 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 		public id: Snowflake,
 		recipients: DiscordUser[],
 		public Request: DiscordRequest,
-		public Gateway: Gateway
+		public Gateway: Gateway,
+		public $dmSettings: DiscordGuildSetting
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
