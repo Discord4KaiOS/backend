@@ -287,12 +287,16 @@ export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordM
 		});
 
 		// sort by ID, or maybe by timestamp?
-		filtered.sort((a, b) => +a.id - +b.id);
+		filtered.sort((a, b) => {
+			if (a.id < b.id) return -1;
+			if (a.id > b.id) return 1;
+			return 0;
+		});
 
 		this.state.shallowSet(filtered);
 	}
 
-	async loadMessages(limit = 15) {
+	private async _loadMessages(limit = 15) {
 		const currentState = this.state.value;
 
 		// if we currently have more messages than the limit, we have to fetch more
@@ -308,6 +312,17 @@ export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordM
 			this.converge(messages);
 			return messages;
 		}
+	}
+
+	private loadMessagesPromise: ReturnType<typeof this._loadMessages> | null = null;
+
+	async loadMessages(limit = 15) {
+		if (this.loadMessagesPromise) return this.loadMessagesPromise;
+		const promise = this._loadMessages(limit);
+		this.loadMessagesPromise = promise;
+		await promise;
+		this.loadMessagesPromise = null;
+		return promise;
 	}
 
 	remove(id: Snowflake) {
