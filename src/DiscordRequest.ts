@@ -6,6 +6,10 @@ export class ResponseError extends Error {
 	code?: number;
 	errors?: object;
 
+	get [Symbol.toStringTag || Symbol()]() {
+		return "ResponseError";
+	}
+
 	constructor(public statusCode: number, public xhr: XMLHttpRequest) {
 		super("ResponseError");
 

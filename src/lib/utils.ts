@@ -16,6 +16,10 @@ export interface JarEventMap<K, V> extends EventMap {
 export class Jar<T, R = string, M extends JarEventMap<R, T> = JarEventMap<R, T>> extends Map<R, T> {
 	readonly id: symbol = currentJarID;
 
+	get [Symbol.toStringTag || Symbol()]() {
+		return "Jar";
+	}
+
 	static emitter = new EventEmitter<{
 		[JarIDEvent]: [symbol];
 	}>();
@@ -142,6 +146,10 @@ export function spread<U>(obj: U) {
 }
 
 export class WritableStore<T> {
+	get [Symbol.toStringTag || Symbol()]() {
+		return "WritableStore";
+	}
+
 	set: (this: void, value: T) => void;
 	update: (this: void, updater: Updater<T>) => void;
 	subscribe: (

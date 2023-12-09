@@ -86,6 +86,10 @@ let preserveDeleted = false;
 export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableStore<
 	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
 > {
+	get [Symbol.toStringTag || Symbol()]() {
+		return "DiscordMessage";
+	}
+
 	static get preserveDeleted() {
 		return preserveDeleted;
 	}

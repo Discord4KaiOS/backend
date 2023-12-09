@@ -18,6 +18,10 @@ interface PropsToken extends Props {
 }
 
 export class MFA extends EventEmitter {
+	get [Symbol.toStringTag || Symbol()]() {
+		return "MFA";
+	}
+
 	constructor(public req: DiscordRequest, public ticket: string, public config: Config) {
 		super();
 	}
