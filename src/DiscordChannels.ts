@@ -9,7 +9,7 @@ import {
 	TextChannelType,
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
-import {
+import DiscordClient, {
 	DiscordClientReady,
 	DiscordGuildSetting,
 	DiscordGuildSettingsJar,
@@ -195,7 +195,7 @@ export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordM
 	private _messageType = DiscordMessage;
 
 	newMessage(message: APIMessage) {
-		const user = this.$channel.$users.$client.addUser(message.author);
+		const user = this.$channel.$client.addUser(message.author);
 		const m = new this._messageType(message, user, this.$channel);
 		return m;
 	}
@@ -566,21 +566,23 @@ abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextCh
 export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	type = ChannelType.DM as TextChannelType;
 	$users: UsersJar;
-	$client: DiscordClientReady;
+
+	Request: DiscordRequest;
+	Gateway: Gateway;
+	$guildSettings: DiscordGuildSettingsJar;
 
 	constructor(
 		initialProps: Partial<DiscordDMBaseProps>,
 		public id: Snowflake,
 		recipients: DiscordUser[],
-		public Request: DiscordRequest,
-		public Gateway: Gateway,
-		public $guildSettings: DiscordGuildSettingsJar
+		public $client: DiscordClientReady
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
-		const client = recipients[0].$relationships.$client;
-		this.$users = client.users;
-		this.$client = client;
+		this.$users = $client.users;
+		this.Request = $client.Request;
+		this.Gateway = $client.Gateway;
+		this.$guildSettings = $client.guildSettings;
 	}
 }
 
@@ -609,20 +611,22 @@ interface DiscordGroupDMChannelProps extends DiscordDMBaseProps {
 export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelProps> {
 	type = ChannelType.GroupDM as TextChannelType;
 	$users: UsersJar;
-	$client: DiscordClientReady;
+
+	Request: DiscordRequest;
+	Gateway: Gateway;
+	$guildSettings: DiscordGuildSettingsJar;
 
 	constructor(
 		initialProps: Partial<DiscordGroupDMChannelProps>,
 		public id: Snowflake,
 		recipients: DiscordUser[],
-		public Request: DiscordRequest,
-		public Gateway: Gateway,
-		public $guildSettings: DiscordGuildSettingsJar
+		public $client: DiscordClientReady
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 		this.recipients.set(recipients);
-		const client = recipients[0].$relationships.$client;
-		this.$users = client.users;
-		this.$client = client;
+		this.$users = $client.users;
+		this.Request = $client.Request;
+		this.Gateway = $client.Gateway;
+		this.$guildSettings = $client.guildSettings;
 	}
 }

@@ -229,24 +229,10 @@ export class DiscordClientReady {
 				has.recipients.shallowSet(_recipients);
 			} else {
 				if (r.type === ChannelType.DM) {
-					const dm = new DiscordDMChannel(
-						obj,
-						r.id,
-						_recipients,
-						this.Request,
-						this.Gateway,
-						this.guildSettings
-					);
+					const dm = new DiscordDMChannel(obj, r.id, _recipients, this);
 					this.dms.add(r.id, dm);
 				} else {
-					const groupDM = new DiscordGroupDMChannel(
-						obj,
-						r.id,
-						_recipients,
-						this.Request,
-						this.Gateway,
-						this.guildSettings
-					);
+					const groupDM = new DiscordGroupDMChannel(obj, r.id, _recipients, this);
 					this.dms.add(r.id, groupDM);
 				}
 				this.dms.sorted.refresh();
@@ -287,6 +273,16 @@ export class DiscordClientReady {
 		this.addUser(ready.user);
 
 		ready.relationships.forEach((u) => this.addUser(u.user));
+
+		ready.read_state.forEach((rs) => {
+			this.readStates.add(rs.id, new DiscordReadState(rs));
+		});
+
+		Gateway.on("t:channel_unread_update", (event) => {
+			event.channel_unread_updates.forEach((state) => {
+				this.readStates.updateCount(state.id, state.mention_count, state.last_message_id);
+			});
+		});
 
 		ready.guilds.forEach((a) => {
 			const guild = new DiscordGuild(a, this.Request, this.Gateway, this.users, this.guildSettings);
@@ -404,16 +400,6 @@ export class DiscordClientReady {
 			const user = this.users.get(evt.user.id)!;
 
 			dm.recipients.shallowUpdate((m) => m.filter((e) => e !== user));
-		});
-
-		ready.read_state.forEach((rs) => {
-			this.readStates.add(rs.id, new DiscordReadState(rs));
-		});
-
-		Gateway.on("t:channel_unread_update", (event) => {
-			event.channel_unread_updates.forEach((state) => {
-				this.readStates.updateCount(state.id, state.mention_count, state.last_message_id);
-			});
 		});
 
 		/// ANCHOR: message events
