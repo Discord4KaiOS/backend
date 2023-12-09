@@ -260,7 +260,10 @@ export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordM
 		// filtered only contains messages not found in the newer batch
 		const filtered = this.state.value.filter((m) => {
 			const found = messages.find((mm) => mm.id === m.id);
-			if (found) return false;
+
+			// if NOT found, then add
+			// else don't add
+			return !found;
 		});
 
 		messages.forEach((m) => {
