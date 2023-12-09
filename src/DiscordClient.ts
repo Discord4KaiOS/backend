@@ -280,7 +280,7 @@ export class DiscordClientReady {
 
 		Gateway.on("t:channel_unread_update", (event) => {
 			event.channel_unread_updates.forEach((state) => {
-				this.readStates.updateCount(state.id, state.mention_count, state.last_message_id);
+				this.readStates.updateCount(state.id, state.last_message_id, state.mention_count);
 			});
 		});
 
@@ -404,7 +404,7 @@ export class DiscordClientReady {
 
 		/// ANCHOR: message events
 		Gateway.on("t:message_ack", ({ mention_count, channel_id, message_id }) => {
-			this.readStates.updateCount(channel_id, mention_count, message_id);
+			this.readStates.updateCount(channel_id, message_id, mention_count);
 		});
 
 		const findChannel = (channel_id: string, guild_id?: string) => {

@@ -26,13 +26,21 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 		}));
 	}
 
-	updateCount(channelID: string, count?: number, message_id?: string | null) {
+	updateCount(channelID: string, message_id?: string | null, count?: number) {
 		const state = this.get(channelID);
 		const current = state.value;
 
 		// Return early if messageId is provided and if last_message_id won't change
 		if (message_id && message_id === current.last_message_id) {
 			return;
+		}
+
+		let newCount = count;
+
+		if (typeof newCount === "undefined" && message_id && current.last_message_id) {
+			if (message_id >= current.last_message_id) {
+				newCount = 0;
+			}
 		}
 
 		state.shallowUpdate((s) => ({
