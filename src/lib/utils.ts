@@ -294,6 +294,33 @@ export class WritableStore<T> {
 		return shouldUpdate;
 	}
 
+	setStateDeep(val: Partial<T>) {
+		const toCompare: Partial<T> = {};
+
+		for (const key in val) {
+			toCompare[key as keyof T] = this.value[key as keyof T];
+		}
+
+		const update = !deepEqual(toCompare, val);
+
+		update && this.set({ ...this.value, ...val });
+	}
+
+	/**
+	 * very similar to React
+	 */
+	setState(val: Partial<T>) {
+		const toCompare: Partial<T> = {};
+
+		for (const key in val) {
+			toCompare[key as keyof T] = this.value[key as keyof T];
+		}
+
+		const update = !shallowEqual(toCompare, val);
+
+		update && this.set({ ...this.value, ...val });
+	}
+
 	get value() {
 		return get(this);
 	}

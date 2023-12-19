@@ -43,11 +43,10 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 			}
 		}
 
-		state.shallowUpdate((s) => ({
-			...s,
+		state.setState({
 			mention_count: newCount || 0,
 			last_message_id: message_id || current.last_message_id,
-		}));
+		});
 	}
 
 	add(channelID: string, state: DiscordReadState) {

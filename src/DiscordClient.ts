@@ -20,6 +20,7 @@ import type {
 	APIGuildTextChannel,
 	Snowflake,
 	APIMessage,
+	GatewayGuildCreateDispatchData,
 } from "discord-api-types/v10";
 import {
 	DiscordDMChannel,
@@ -48,10 +49,9 @@ class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	insert(profile: APIGuildMember, guild: DiscordGuild) {
 		const has = this.get(guild.id);
 		if (has) {
-			const updater = spread(profile);
 			// roles is the only part that needs to be recursively checked
-			if (profile.roles) has.deepUpdate(updater);
-			else has.shallowUpdate(updater);
+			if (profile.roles) has.setStateDeep(profile);
+			else has.setState(profile);
 		} else {
 			const _profile = new DiscordServerProfile(profile, guild, this.$user);
 			this.set(guild.id, _profile);
@@ -301,7 +301,7 @@ export class DiscordClientReady {
 			const _recipients = r.recipients?.map((u) => this.users.get(u.id)!) || [];
 
 			if (has) {
-				has.shallowUpdate(spread(obj));
+				has.setState(obj);
 
 				has.recipients.shallowSet(_recipients);
 			} else {
@@ -367,18 +367,22 @@ export class DiscordClientReady {
 			});
 		});
 
-		const addGuild = (_guild: ClientGuild) => {
+		const addGuild = (_guild: ClientGuild | GatewayGuildCreateDispatchData) => {
 			const guild = new DiscordGuild(
-				_guild,
+				// nothing should go wrong, right??
+				_guild as ClientGuild,
 				this.Request,
 				this.Gateway,
 				this.users,
 				this.guildSettings
 			);
-			guild.handleChannels(..._guild.channels);
+
+			// nothing should go wrong, right??
+			guild.handleChannels(...(_guild.channels as ClientChannel[]));
 			guild.channels.sorted.refresh();
 			this.guilds.add(_guild.id, guild);
 			_guild.members.forEach((m) => {
+				if (!m.user) return;
 				const user = this.addUser(m.user);
 				const profile = user.profiles.insert(m, guild);
 				guild.members.add(profile);
@@ -388,6 +392,15 @@ export class DiscordClientReady {
 		ready.guilds.forEach(addGuild);
 
 		Gateway.on("t:guild_create", addGuild);
+		Gateway.on(
+			"t:guild_update",
+			({ name, icon, owner_id, description, roles, rules_channel_id, ...evt }) => {
+				const guild = this.guilds.get(evt.id);
+				if (!guild) return;
+
+				guild.setStateDeep({ name, icon, owner_id, description, roles, rules_channel_id });
+			}
+		);
 
 		/// ANCHOR: guild settings events
 		this.handleGuildSettings(...ready.user_guild_settings);
@@ -585,12 +598,10 @@ export class DiscordClientReady {
 		// user object from API for current user lacks some properties
 
 		if (has) {
-			const updater = spread(user);
-
 			// use deep comparison when decoration is present
 			if (user.avatar_decoration_data) {
-				has.deepUpdate(updater);
-			} else has.shallowUpdate(updater);
+				has.setStateDeep(user);
+			} else has.setState(user);
 		} else {
 			const _user = new DiscordUser(user, this.relationships);
 			this.users.set(user.id, _user);

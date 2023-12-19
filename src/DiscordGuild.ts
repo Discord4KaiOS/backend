@@ -301,11 +301,9 @@ export class DiscordGuild extends WritableStore<
 								new DiscordGuildTextChannel<_channelType>(props, a.type, this, a.id)
 							);
 						} else {
-							const updater = spread(props);
-
 							// if new state has array, then use deepEqual comparison
-							if (props.permission_overwrites) (has as _has).deepUpdate(updater);
-							else (has as _has).shallowUpdate(updater);
+							if (props.permission_overwrites) (has as _has).setStateDeep(props);
+							else (has as _has).setState(props);
 						}
 					}
 					break;

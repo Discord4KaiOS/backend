@@ -1,4 +1,7 @@
 import type {
+	GatewayGuildCreateDispatchData,
+	GatewayGuildDeleteDispatchData,
+	GatewayGuildUpdateDispatchData,
 	GatewayMessageCreateDispatchData,
 	GatewayMessageDeleteBulkDispatchData,
 	GatewayMessageDeleteDispatchData,
@@ -81,6 +84,7 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:ready": [ReadyEvent];
 
 	"t:channel_unread_update": [ChannelUnreadUpdateEvent];
+	"t:typing_start": [GatewayTypingStartDispatchData];
 
 	// message things
 	"t:message_ack": [MessageACKEvent];
@@ -88,7 +92,11 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:message_update": [GatewayMessageUpdateDispatchData];
 	"t:message_delete": [GatewayMessageDeleteDispatchData];
 	"t:message_delete_bulk": [GatewayMessageDeleteBulkDispatchData];
-	"t:typing_start": [GatewayTypingStartDispatchData];
+
+	"t:guild_create": [GatewayGuildCreateDispatchData];
+	"t:guild_update": [GatewayGuildUpdateDispatchData];
+	"t:guild_delete": [GatewayGuildDeleteDispatchData];
+
 	close: [];
 	[x: string]: any[];
 	[x: symbol]: any[];
