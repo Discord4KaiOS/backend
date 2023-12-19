@@ -152,9 +152,21 @@ class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
 	}
 }
 
+interface GuildsFolder {
+	id: number;
+	name: string | null;
+	color: number | null;
+	guilds: Array<DiscordGuild>;
+	guild_ids: Array<string>;
+}
+
 class GuildsJar extends Jar<DiscordGuild> {
 	constructor(public $client: DiscordClientReady) {
 		super();
+
+		this.on("update", () => {
+			this.refresh();
+		});
 	}
 
 	findChannelById(id: Snowflake) {
@@ -166,7 +178,52 @@ class GuildsJar extends Jar<DiscordGuild> {
 		return found;
 	}
 
-	toSorted() {}
+	sorted = new WritableStore<Array<DiscordGuild | GuildsFolder>>(this.toSorted());
+
+	refresh() {
+		this.sorted.deepSet(this.toSorted());
+	}
+
+	toSorted() {
+		const all = this.list();
+
+		// cloned folders objects
+		const folders: GuildsFolder[] = this.$client.userSettings.value.guild_folders
+			.filter((a) => a.id !== null)
+			.map((obj) => {
+				return { ...obj, guilds: [] } as any as GuildsFolder;
+			});
+		const arrangement = this.$client.userSettings.value.guild_folders
+			.map((a) => a.guild_ids)
+			.flat();
+
+		if (arrangement.length) {
+			const indexer = <T extends { id: string }>({ id }: T) => arrangement.indexOf(id);
+			all.sort((a, b) => {
+				return indexer(a) - indexer(b);
+			});
+		} else {
+			// sort by joined date first (recently joined > older)
+			all.sort((a, b) => {
+				return new Date(b.$.joined_at).getTime() - new Date(a.$.joined_at).getTime();
+			});
+		}
+
+		const arr: Array<DiscordGuild | GuildsFolder> = [];
+
+		all.forEach((guild) => {
+			const folder = folders.find((e) => e.id && e.guild_ids.includes(guild.id));
+
+			if (folder) {
+				folder.guilds.push(guild);
+				if (!arr.includes(folder)) arr.push(folder);
+			} else {
+				arr.push(guild);
+			}
+		});
+
+		return arr;
+	}
 }
 
 export class DiscordGuildSetting extends WritableStore<
