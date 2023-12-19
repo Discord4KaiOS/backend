@@ -11,6 +11,7 @@ import {
 	ClientUserGuildSetting,
 	ClientChannelOverride,
 	ClientAPIUser,
+	ClientGuild,
 } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
 import {
@@ -152,6 +153,10 @@ class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
 }
 
 class GuildsJar extends Jar<DiscordGuild> {
+	constructor(public $client: DiscordClientReady) {
+		super();
+	}
+
 	findChannelById(id: Snowflake) {
 		let found:
 			| DiscordGuildChannelCategory
@@ -160,6 +165,8 @@ class GuildsJar extends Jar<DiscordGuild> {
 		this.list().find((a) => (found = a.channels.get(id)));
 		return found;
 	}
+
+	toSorted() {}
 }
 
 export class DiscordGuildSetting extends WritableStore<
@@ -189,7 +196,7 @@ export class DiscordClientReady {
 	users = new UsersJar(this);
 	relationships = new RelationshipsJar(this);
 	dms = new DMsJar();
-	guilds = new GuildsJar();
+	guilds = new GuildsJar(this);
 	guildSettings = new DiscordGuildSettingsJar();
 	readStates = new ReadStateHandler(this);
 
@@ -256,16 +263,13 @@ export class DiscordClientReady {
 	}
 
 	constructor(
-		ready: ReadyEvent,
+		public ready: ReadyEvent,
 		public Gateway: Gateway,
 		public Request: DiscordRequest,
 		config: Config
 	) {
 		this.config = config;
 		if (!config.client) throw Error("DiscordClient not initialized!");
-
-		const currentJarID = this.users.id;
-		Jar.setConfigByID(currentJarID, config);
 
 		this.handleRelationships(...ready.relationships);
 
@@ -284,17 +288,27 @@ export class DiscordClientReady {
 			});
 		});
 
-		ready.guilds.forEach((a) => {
-			const guild = new DiscordGuild(a, this.Request, this.Gateway, this.users, this.guildSettings);
-			guild.handleChannels(...a.channels);
+		const addGuild = (_guild: ClientGuild) => {
+			const guild = new DiscordGuild(
+				_guild,
+				this.Request,
+				this.Gateway,
+				this.users,
+				this.guildSettings
+			);
+			guild.handleChannels(..._guild.channels);
 			guild.channels.sorted.refresh();
-			this.guilds.add(a.id, guild);
-			a.members.forEach((m) => {
+			this.guilds.add(_guild.id, guild);
+			_guild.members.forEach((m) => {
 				const user = this.addUser(m.user);
 				const profile = user.profiles.insert(m, guild);
 				guild.members.add(profile);
 			});
-		});
+		};
+
+		ready.guilds.forEach(addGuild);
+
+		Gateway.on("t:guild_create", addGuild);
 
 		/// ANCHOR: guild settings events
 		this.handleGuildSettings(...ready.user_guild_settings);
@@ -531,6 +545,7 @@ export default class DiscordClient extends EventEmitter {
 			try {
 				deffered.resolve(new DiscordClientReady(evt, this.Gateway, this.Request, config));
 			} catch (error) {
+				deffered.reject(error);
 				console.error(error);
 			}
 		});

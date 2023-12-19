@@ -79,12 +79,19 @@ class SortedChannels extends WritableStore<ChannelsJarItems[]> {
 	}
 }
 
+const forcedChannels = new Set<string>();
+
 class ChannelsJar extends Jar<ChannelsJarItems> {
 	sorted = new SortedChannels(this);
 
 	constructor(public guild: DiscordGuild) {
 		super();
 	}
+
+	/**
+	 * force these channels to show up (because stuff occur that i'm not bothered to test out)
+	 */
+	forced = forcedChannels;
 
 	toSorted(includeHidden = false) {
 		/**
@@ -114,7 +121,7 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 		list.forEach((e) => {
 			if (e instanceof DiscordGuildChannelCategory) return;
 
-			if (includeHidden || e.roleAccess().VIEW_CHANNEL !== false) {
+			if (this.forced.has(e.id) || includeHidden || e.roleAccess().VIEW_CHANNEL !== false) {
 				switch (e.type) {
 					case ChannelType.GuildText:
 					case ChannelType.GuildAnnouncement:
@@ -129,6 +136,12 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 						(parent || map.get(null)!).push(e);
 						break;
 				}
+			}
+		});
+
+		map.forEach((val, key) => {
+			if (val.length <= 1) {
+				map.delete(key);
 			}
 		});
 
