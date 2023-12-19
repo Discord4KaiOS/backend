@@ -1,14 +1,13 @@
-import {
+import type {
 	APIAttachment,
 	APIMessageReference,
 	APIMessage,
 	APIOverwrite,
 	ChannelFlags,
-	ChannelType,
 	Snowflake,
-	TextChannelType,
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
+
 import DiscordClient, {
 	DiscordClientReady,
 	DiscordGuildSetting,
@@ -18,7 +17,20 @@ import DiscordClient, {
 } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { Jar, WritableStore, toQuery, toVoid } from "./lib/utils";
+import { Jar, WritableStore, toQuery, toVoid, ChannelType } from "./lib/utils";
+type TextChannelType =
+	| ChannelType.DM
+	| ChannelType.GroupDM
+	| ChannelType.GuildAnnouncement
+	| ChannelType.PublicThread
+	| ChannelType.PrivateThread
+	| ChannelType.AnnouncementThread
+	| ChannelType.GuildText
+	| ChannelType.GuildForum
+	| ChannelType.GuildVoice
+	| ChannelType.GuildStageVoice
+	| ChannelType.GuildMedia;
+
 import { DiscordGuild } from "./DiscordGuild";
 
 export function generateNonce() {

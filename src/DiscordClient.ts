@@ -14,13 +14,11 @@ import {
 	ClientGuild,
 } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
-import {
+import type {
 	APIChannel,
 	APIGuildMember,
 	APIGuildTextChannel,
-	GuildTextChannelType,
 	Snowflake,
-	ChannelType,
 	APIMessage,
 } from "discord-api-types/v10";
 import {
@@ -31,7 +29,14 @@ import {
 	DiscordGuildTextChannel,
 	MessagesJar,
 } from "./DiscordChannels";
-import { WritableStore, Jar, spread, convertSnowflakeToDate } from "./lib/utils";
+import {
+	WritableStore,
+	Jar,
+	spread,
+	convertSnowflakeToDate,
+	ChannelType,
+	GuildTextChannelType,
+} from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";

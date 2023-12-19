@@ -1,13 +1,12 @@
-import {
+import type {
 	APIGuildMember,
 	APIOverwrite,
-	ChannelType,
 	GuildTextChannelType,
 	Snowflake,
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
 import { DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
-import { WritableStore, toVoid, Jar, spread } from "./lib/utils";
+import { WritableStore, toVoid, Jar, spread, ChannelType } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";

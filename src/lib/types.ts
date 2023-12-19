@@ -2,7 +2,6 @@ import type {
 	APIUser,
 	GatewayActivity,
 	APIInteractionGuildMember,
-	ChannelType,
 	APIGuild,
 	GatewayReadyDispatchData,
 	APIGuildTextChannel,
@@ -12,6 +11,7 @@ import type {
 	APIVoiceChannelBase,
 } from "discord-api-types/v10";
 export type * from "discord-api-types/v10";
+import type { ChannelType } from "./utils";
 
 export interface ClientAPIUser extends APIUser {
 	avatar_decoration_data?: {
