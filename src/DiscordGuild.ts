@@ -164,6 +164,10 @@ export class DiscordGuild extends WritableStore<
 	static logger = new Logger("DiscordGuild");
 	members = new Set<DiscordServerProfile>();
 
+	get [Symbol.toStringTag || Symbol()]() {
+		return "DiscordGuild";
+	}
+
 	constructor(
 		public $: ClientGuild,
 		public Request: DiscordRequest,
