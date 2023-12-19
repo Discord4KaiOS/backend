@@ -204,6 +204,7 @@ export class DiscordClientReady {
 	config: Config;
 
 	logger = new Logger("DiscordClientReady");
+	userSettings: WritableStore<ReadyEvent["user_settings"]>;
 
 	close() {
 		this.Gateway.close();
@@ -281,6 +282,8 @@ export class DiscordClientReady {
 		ready.read_state.forEach((rs) => {
 			this.readStates.add(rs.id, new DiscordReadState(rs));
 		});
+
+		this.userSettings = new WritableStore(ready.user_settings);
 
 		Gateway.on("t:channel_unread_update", (event) => {
 			event.channel_unread_updates.forEach((state) => {
