@@ -167,6 +167,8 @@ class GuildsJar extends Jar<DiscordGuild> {
 		this.on("update", () => {
 			this.refresh();
 		});
+
+		this.refresh();
 	}
 
 	findChannelById(id: Snowflake) {
@@ -178,7 +180,7 @@ class GuildsJar extends Jar<DiscordGuild> {
 		return found;
 	}
 
-	sorted = new WritableStore<Array<DiscordGuild | GuildsFolder>>(this.toSorted());
+	sorted = new WritableStore<Array<DiscordGuild | GuildsFolder>>([]);
 
 	refresh() {
 		this.sorted.deepSet(this.toSorted());
@@ -249,19 +251,24 @@ class ChannelOverridesJar extends Jar<DiscordChannelOverride> {
 
 export class DiscordGuildSettingsJar extends Jar<DiscordGuildSetting, string | null> {}
 
-export class DiscordClientReady {
-	users = new UsersJar(this);
-	relationships = new RelationshipsJar(this);
-	dms = new DMsJar();
-	guilds = new GuildsJar(this);
-	guildSettings = new DiscordGuildSettingsJar();
-	readStates = new ReadStateHandler(this);
+class DiscordUserSettings extends WritableStore<ReadyEvent["user_settings"]> {
+	constructor(public $client: DiscordClientReady) {
+		super($client.ready.user_settings);
+	}
+}
 
+export class DiscordClientReady {
 	static logger = new Logger("DiscordClientReady");
 	config: Config;
 
 	logger = new Logger("DiscordClientReady");
-	userSettings: WritableStore<ReadyEvent["user_settings"]>;
+	userSettings: DiscordUserSettings;
+	users: UsersJar;
+	relationships: RelationshipsJar;
+	dms: DMsJar;
+	guilds: GuildsJar;
+	guildSettings: DiscordGuildSettingsJar;
+	readStates: ReadStateHandler;
 
 	close() {
 		this.Gateway.close();
@@ -329,6 +336,15 @@ export class DiscordClientReady {
 		this.config = config;
 		if (!config.client) throw Error("DiscordClient not initialized!");
 
+		this.users = new UsersJar(this);
+		this.relationships = new RelationshipsJar(this);
+		this.dms = new DMsJar();
+
+		this.userSettings = new DiscordUserSettings(this);
+		this.guilds = new GuildsJar(this);
+		this.guildSettings = new DiscordGuildSettingsJar();
+		this.readStates = new ReadStateHandler(this);
+
 		this.handleRelationships(...ready.relationships);
 
 		config.user_id = ready.user.id;
@@ -339,8 +355,6 @@ export class DiscordClientReady {
 		ready.read_state.forEach((rs) => {
 			this.readStates.add(rs.id, new DiscordReadState(rs));
 		});
-
-		this.userSettings = new WritableStore(ready.user_settings);
 
 		Gateway.on("t:channel_unread_update", (event) => {
 			event.channel_unread_updates.forEach((state) => {
