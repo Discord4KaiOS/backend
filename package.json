@@ -1,19 +1,20 @@
 {
-  "name": "kaios-preact-starter",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "bun --hot --inspect-wait test.tsx"
-  },
-  "dependencies": {
-    "@types/pako": "^2.0.3",
-    "discord-api-types": "^0.37.63",
-    "jsbi": "^4.3.0",
-    "json-prune": "^1.1.0"
-  },
-  "devDependencies": {
-    "@gluon-framework/gluon": "^0.14.0",
-    "bun-types": "^1.0.11"
-  }
+	"name": "kaios-preact-starter",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "bun --hot --inspect-wait test.tsx"
+	},
+	"dependencies": {
+		"@types/pako": "~1.0.5",
+		"pako": "~1.0.5",
+		"discord-api-types": "^0.37.63",
+		"jsbi": "^4.3.0",
+		"json-prune": "^1.1.0"
+	},
+	"devDependencies": {
+		"@gluon-framework/gluon": "^0.14.0",
+		"bun-types": "^1.0.11"
+	}
 }

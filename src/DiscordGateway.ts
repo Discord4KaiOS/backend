@@ -11,8 +11,8 @@ import type {
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
 
-import initPako from "./lib/pako";
-import type { Inflate } from "./lib/pako";
+import Pako from "pako";
+import type { Inflate } from "pako";
 import {
 	APIChannel,
 	ClientAPIUser,
@@ -67,8 +67,6 @@ interface ChannelUnreadUpdateEvent {
 	channel_unread_updates: ClientReadState[];
 	guild_id: string;
 }
-
-const Pako = initPako();
 
 type GatewayEventsUnion = Record<
 	"t:relationship_update" | "t:relationship_add" | "t:relationship_remove",
@@ -194,6 +192,7 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 		this.ws?.close();
 		this.ws = undefined;
 		if (this._inflate) {
+			// @ts-ignore
 			this._inflate.chunks = [];
 			this._inflate.onEnd = () => {};
 			this._inflate = null;
@@ -210,8 +209,10 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 		const inflate = new Pako.Inflate({ chunkSize: 65536, to: "string" });
 
 		inflate.onEnd = (e: number) => {
+			// @ts-ignore
 			if (e !== Pako.Z_OK) throw new Error(`zlib error, ${e}, ${inflate.strm.msg}`);
 
+			// @ts-ignore
 			const chunks = inflate.chunks as string[];
 
 			const result = chunks.join("");
@@ -232,6 +233,8 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 
 			const view = new DataView(data),
 				shouldFlush = view.byteLength >= 4 && 65535 === view.getUint32(view.byteLength - 4, false);
+
+			// @ts-ignore
 			this._inflate.push(data, shouldFlush && Pako.Z_SYNC_FLUSH);
 		});
 		ws.addEventListener("open", () => this.logger.info("Sending Identity [OP 2]...")());
