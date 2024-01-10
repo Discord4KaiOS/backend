@@ -65,7 +65,8 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 		if (!has) {
 			ReadStateHandler.logger.dbg("readstate not found", channelID)();
 
-			const channel = this.$.guilds.findChannelById(channelID);
+			const dmChannel = this.$.dms.get(channelID);
+			const channel = dmChannel || this.$.guilds.findChannelById(channelID);
 
 			if (!channel) {
 				ReadStateHandler.logger.err("channel not found", channelID)();
