@@ -379,7 +379,7 @@ export class DiscordClientReady {
 
 			// nothing should go wrong, right??
 			guild.handleChannels(...(_guild.channels as ClientChannel[]));
-			guild.channels.sorted.refresh();
+
 			this.guilds.add(_guild.id, guild);
 			_guild.members.forEach((m) => {
 				if (!m.user) return;
@@ -387,6 +387,8 @@ export class DiscordClientReady {
 				const profile = user.profiles.insert(m, guild);
 				guild.members.add(profile);
 			});
+
+			guild.channels.sorted.refresh();
 		};
 
 		ready.guilds.forEach(addGuild);
