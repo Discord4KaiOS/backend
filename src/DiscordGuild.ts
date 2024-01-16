@@ -118,7 +118,7 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 		});
 
 		list.forEach((e) => {
-			if (e instanceof DiscordGuildChannelCategory) return;
+			if (!("readState" in e)) return;
 
 			if (this.forced.has(e.id) || includeHidden || e.roleAccess().VIEW_CHANNEL !== false) {
 				switch (e.type) {

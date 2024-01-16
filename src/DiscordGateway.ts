@@ -227,7 +227,7 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 
 		ws.addEventListener("message", ({ data }: MessageEvent<ArrayBuffer>) => {
 			if (!this._inflate) return;
-			if (!(data instanceof ArrayBuffer)) {
+			if (!("byteLength" in data)) {
 				this.logger.err("Received non-arraybuffer data!", data)();
 			}
 
