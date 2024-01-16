@@ -1,9 +1,13 @@
 import type { Snowflake } from "discord-api-types/globals";
 import Logger from "../Logger";
-import { Config } from "../config";
 import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 import JSBI from "jsbi";
+import type { Signal, signal } from "@preact/signals";
+
+let _signal: null | typeof signal = null;
+
+import("@preact/signals").then((s) => (_signal = s.signal)).catch(() => {});
 
 let currentJarID = Symbol("jarID");
 
@@ -336,6 +340,22 @@ export class WritableStore<T> {
 		jsonObj.value = this.value;
 
 		return jsonObj;
+	}
+
+	private _signal: Signal<T> | null = null;
+
+	/**
+	 * @internal
+	 * returns a preact signal value if available, returns null if not available,
+	 * will assert a signal is available for convenience purposes
+	 */
+	get v(): T {
+		if (this._signal) return this._signal.value;
+		if (!_signal) return null as any;
+		const signal = _signal(this.value);
+		this.subscribe((val) => (signal.value = val));
+		this._signal = signal;
+		return signal.value;
 	}
 }
 
