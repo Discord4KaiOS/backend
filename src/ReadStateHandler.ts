@@ -74,7 +74,7 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 			}
 
 			const newState = new DiscordReadState({
-				last_message_id: "1",
+				last_message_id: null,
 				last_pin_timestamp: null,
 				id: channelID,
 				mention_count: 0,
