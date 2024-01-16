@@ -139,7 +139,7 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 		});
 
 		map.forEach((val, key) => {
-			if (val.length <= 1) {
+			if (key && val.length <= 1) {
 				map.delete(key);
 			}
 		});
