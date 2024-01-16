@@ -70,11 +70,11 @@ type ChannelsJarItems = DiscordGuildTextChannel<GuildTextChannelType> | DiscordG
 
 class SortedChannels extends WritableStore<ChannelsJarItems[]> {
 	constructor(public $: ChannelsJar) {
-		super($.toSorted(true));
+		super($.toSorted());
 	}
 
 	refresh() {
-		this.shallowSet(this.$.toSorted(true));
+		this.shallowSet(this.$.toSorted());
 	}
 }
 
