@@ -177,12 +177,40 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 		this.send({
 			op: 2,
 			d: {
-				status: "online",
 				token: this.token,
+				capabilities: 16381,
 				properties: {
-					browser: "Discord Android",
-					device: "sveltecord, discord4kaios",
 					os: "Android",
+					browser: "Chrome",
+					device: "",
+					system_locale: "en-US",
+					browser_user_agent:
+						"Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
+					browser_version: "116.0.0.0",
+					os_version: "8.0.0",
+					referrer: "",
+					referring_domain: "",
+					referrer_current: "",
+					referring_domain_current: "",
+					release_channel: "stable",
+					client_build_number: 259501,
+					client_event_source: null,
+				},
+				presence: {
+					status: "unknown",
+					since: 0,
+					activities: [],
+					afk: false,
+				},
+				compress: false,
+				client_state: {
+					guild_versions: {},
+					highest_last_message_id: "0",
+					read_state_version: 0,
+					user_guild_settings_version: -1,
+					user_settings_version: -1,
+					private_channels_version: "0",
+					api_code_version: 0,
 				},
 			},
 		});
