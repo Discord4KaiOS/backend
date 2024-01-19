@@ -1,6 +1,7 @@
 import type {
 	GatewayGuildCreateDispatchData,
 	GatewayGuildDeleteDispatchData,
+	GatewayGuildMemberUpdateDispatchData,
 	GatewayGuildUpdateDispatchData,
 	GatewayMessageCreateDispatchData,
 	GatewayMessageDeleteBulkDispatchData,
@@ -96,6 +97,8 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:guild_create": [GatewayGuildCreateDispatchData];
 	"t:guild_update": [GatewayGuildUpdateDispatchData];
 	"t:guild_delete": [GatewayGuildDeleteDispatchData];
+
+	"t:guild_member_update": [GatewayGuildMemberUpdateDispatchData];
 
 	close: [];
 	[x: string]: any[];

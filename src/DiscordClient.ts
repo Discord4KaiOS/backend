@@ -37,6 +37,7 @@ import {
 	convertSnowflakeToDate,
 	ChannelType,
 	GuildTextChannelType,
+	toVoid,
 } from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
@@ -431,6 +432,42 @@ export class DiscordClientReady {
 				guild.setStateDeep({ name, icon, owner_id, description, roles, rules_channel_id });
 			}
 		);
+		Gateway.on("t:guild_member_update", (evt) => {
+			const user = this.users.get(evt.user.id);
+
+			if (!user) throw new Error("guild member update user not found " + evt.user.id);
+
+			const profile = user.profiles.get(evt.guild_id);
+			const {
+				roles,
+				avatar,
+				deaf,
+				mute,
+				nick,
+				communication_disabled_until,
+				pending,
+				premium_since,
+				...rest
+			} = evt;
+
+			profile?.setStateDeep({
+				roles,
+				avatar,
+				deaf,
+				mute,
+				nick,
+				communication_disabled_until,
+				pending,
+				premium_since,
+			});
+
+			if (user.id == ready.user.id) {
+				const guild = this.guilds.get(evt.guild_id);
+				if (!guild) throw new Error("guild member update guild not found " + evt.guild_id);
+
+				guild.channels.sorted.refresh();
+			}
+		});
 
 		/// ANCHOR: guild settings events
 		this.handleGuildSettings(...ready.user_guild_settings.entries);
