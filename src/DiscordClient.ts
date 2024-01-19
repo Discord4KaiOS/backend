@@ -299,11 +299,11 @@ export class DiscordClientReady {
 		channels.forEach((r) => {
 			const has = this.dms.get(r.id);
 
-			r.recipients?.forEach((u) => this.addUser(u));
+			const { id, recipient_ids, recipients, type, ...obj } = r;
 
-			const { id, recipients, type, ...obj } = r;
-
-			const _recipients = r.recipients?.map((u) => this.users.get(u.id)!) || [];
+			const _recipients = recipients
+				? recipients.map((a) => this.users.get(a.id)!)
+				: recipient_ids.map((a) => this.users.get(a)!);
 
 			if (has) {
 				has.setState(obj);
@@ -454,7 +454,7 @@ export class DiscordClientReady {
 			switch (channel.type) {
 				case ChannelType.DM:
 				case ChannelType.GroupDM:
-					this.handleDMChannels(channel);
+					this.handleDMChannels(channel as PrivateChannel);
 					break;
 				case ChannelType.GuildCategory:
 				case ChannelType.GuildText:

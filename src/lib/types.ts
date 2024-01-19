@@ -204,6 +204,7 @@ interface Presence {
 export interface PrivateChannel {
 	type: ChannelType.DM | ChannelType.GroupDM;
 	recipients?: ClientAPIUser[];
+	recipient_ids: string[];
 	last_message_id?: string | null;
 	last_pin_timestamp?: string | null;
 	is_spam?: boolean;
