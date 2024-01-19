@@ -437,34 +437,12 @@ export class DiscordClientReady {
 
 			if (!user) throw new Error("guild member update user not found " + evt.user.id);
 
-			const profile = user.profiles.get(evt.guild_id);
-			const {
-				roles,
-				avatar,
-				deaf,
-				mute,
-				nick,
-				communication_disabled_until,
-				pending,
-				premium_since,
-				...rest
-			} = evt;
+			const guild = this.guilds.get(evt.guild_id);
+			if (!guild) throw new Error("guild member update guild not found " + evt.guild_id);
 
-			profile?.setStateDeep({
-				roles,
-				avatar,
-				deaf,
-				mute,
-				nick,
-				communication_disabled_until,
-				pending,
-				premium_since,
-			});
+			user.profiles.insert(evt as any, guild);
 
 			if (user.id == ready.user.id) {
-				const guild = this.guilds.get(evt.guild_id);
-				if (!guild) throw new Error("guild member update guild not found " + evt.guild_id);
-
 				guild.channels.sorted.refresh();
 			}
 		});
