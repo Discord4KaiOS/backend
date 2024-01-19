@@ -41,6 +41,7 @@ import {
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
+import { PreloadedUserSettings } from "discord-protos";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
@@ -418,7 +419,7 @@ export class DiscordClientReady {
 			this.relationships.get(evt.id).shallowSet({ type: 0, nickname: null });
 		});
 
-		console.log(ready);
+		// console.log(ready);
 
 		/// ANCHOR: channel events
 		this.handleDMChannels(...ready.private_channels);
@@ -635,6 +636,11 @@ export default class DiscordClient extends EventEmitter {
 
 		this.Gateway.once("t:ready", (evt: ReadyEvent) => {
 			try {
+				// @ts-ignore
+				const user_settings = PreloadedUserSettings.fromBase64(evt.user_settings_proto);
+
+				console.log("user_settings", user_settings);
+
 				deffered.resolve(new DiscordClientReady(evt, this.Gateway, this.Request, config));
 			} catch (error) {
 				deffered.reject(error);
