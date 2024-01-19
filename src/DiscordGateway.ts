@@ -19,6 +19,7 @@ import {
 	ClientReadState,
 	ClientRelationship,
 	ReadyEvent,
+	ReadySupplementalEvent,
 	Snowflake,
 } from "./lib/types";
 
@@ -80,6 +81,7 @@ type GatewayEventsUnion = Record<
 
 interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:ready": [ReadyEvent];
+	"t:ready_supplemental": [ReadySupplementalEvent];
 
 	"t:channel_unread_update": [ChannelUnreadUpdateEvent];
 	"t:typing_start": [GatewayTypingStartDispatchData];

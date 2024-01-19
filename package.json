@@ -7,15 +7,14 @@
     "dev": "bun --hot --inspect-wait test.tsx"
   },
   "dependencies": {
+    "@protobuf-ts/runtime": "^2.9.3",
     "@types/pako": "~1.0.5",
     "discord-api-types": "^0.37.63",
-    "discord-protos": "^1.0.5",
     "jsbi": "^4.3.0",
     "json-prune": "^1.1.0",
     "pako": "~1.0.5"
   },
   "devDependencies": {
-    "@gluon-framework/gluon": "^0.14.0",
     "bun-types": "^1.0.11"
   },
   "peerDependencies": {

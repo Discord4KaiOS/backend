@@ -12,6 +12,7 @@ import type {
 } from "discord-api-types/v10";
 export type * from "discord-api-types/v10";
 import type { ChannelType } from "./utils";
+import { PreloadedUserSettings } from "./discord-protos";
 
 export interface ClientAPIUser extends APIUser {
 	avatar_decoration_data?: {
@@ -19,21 +20,53 @@ export interface ClientAPIUser extends APIUser {
 		asset: string;
 	} | null;
 }
+
+interface ClientGuildMember
+	extends Pick<
+		APIInteractionGuildMember,
+		| "roles"
+		| "premium_since"
+		| "pending"
+		| "nick"
+		| "mute"
+		| "joined_at"
+		| "flags"
+		| "deaf"
+		| "communication_disabled_until"
+		| "avatar"
+	> {
+	user_id: string;
+}
+
 export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
-	user_settings: UserSettings;
-	user_guild_settings: ClientUserGuildSetting[];
+	// user_settings: UserSettings;
+	user_settings_proto: string;
+	user_settings: PreloadedUserSettings;
+	user_guild_settings: {
+		entries: ClientUserGuildSetting[];
+		partial: boolean;
+		version: number;
+	};
 	// is this part intentional?
 	user: ClientAPIUser;
 	sessions: Session[];
 	session_type: string;
 	relationships: ClientRelationship[];
-	read_state: ClientReadState[];
+	read_state: {
+		entries: ClientReadState[];
+		partial: boolean;
+		version: number;
+	};
 	private_channels: PrivateChannel[];
 	guilds: ClientGuild[];
+
+	merged_members: ClientGuildMember[][];
+
 	country_code: string;
 	connected_accounts: ConnectedAccount[];
 	auth_session_id_hash: string;
 	api_code_version: number;
+	users: ClientAPIUser[];
 }
 
 interface ConnectedAccount {
@@ -65,8 +98,16 @@ export interface ClientGuild extends APIGuild {
 	application_command_counts: { [key: string]: number };
 	lazy: boolean;
 	joined_at: string;
-	members: APIInteractionGuildMember[];
 	guild_scheduled_events: GuildScheduledEvent[];
+
+	// this is dead but the way I coded this entire thing requires it
+	members: APIInteractionGuildMember[];
+}
+
+// DISCORD MAADE BREAKING CHANGES GRRRR
+export interface ReadySupplementalEvent {
+	// incomplete i'll add more if I figure out how it works
+	merged_members: ClientGuildMember[][];
 }
 
 interface IconEmoji {
@@ -202,8 +243,8 @@ export const enum RelationshipType {
 export interface ClientRelationship {
 	type: RelationshipType;
 	nickname: null | string;
+	user_id: string;
 	id: string;
-	user: ClientAPIUser;
 }
 
 interface Session {
@@ -240,55 +281,4 @@ export interface ClientChannelOverride {
 	message_notifications: number;
 	collapsed: boolean;
 	channel_id: string;
-}
-
-interface UserSettings {
-	detect_platform_accounts: boolean;
-	animate_stickers: number;
-	inline_attachment_media: boolean;
-	status: string;
-	message_display_compact: boolean;
-	view_nsfw_guilds: boolean;
-	timezone_offset: number;
-	enable_tts_command: boolean;
-	disable_games_tab: boolean;
-	stream_notifications_enabled: boolean;
-	animate_emoji: boolean;
-	guild_folders: GuildFolder[];
-	activity_joining_restricted_guild_ids: any[];
-	convert_emoticons: boolean;
-	afk_timeout: number;
-	passwordless: boolean;
-	contact_sync_enabled: boolean;
-	gif_auto_play: boolean;
-	custom_status: CustomStatus;
-	native_phone_integration_enabled: boolean;
-	allow_accessibility_detection: boolean;
-	friend_discovery_flags: number;
-	show_current_game: boolean;
-	restricted_guilds: any[];
-	developer_mode: boolean;
-	view_nsfw_commands: boolean;
-	render_reactions: boolean;
-	locale: string;
-	render_embeds: boolean;
-	inline_embed_media: boolean;
-	default_guilds_restricted: boolean;
-	explicit_content_filter: number;
-	activity_restricted_guild_ids: any[];
-	theme: "dark" | "light";
-}
-
-interface CustomStatus {
-	text: string;
-	expires_at: null;
-	emoji_name: null | string;
-	emoji_id: null | string;
-}
-
-interface GuildFolder {
-	name: null;
-	id: number | null;
-	guild_ids: string[];
-	color: number | null;
 }

@@ -8,9 +8,8 @@ import type {
 	ThreadAutoArchiveDuration,
 } from "discord-api-types/v10";
 
-import DiscordClient, {
+import {
 	DiscordClientReady,
-	DiscordGuildSetting,
 	DiscordGuildSettingsJar,
 	DiscordUser,
 	UsersJar,

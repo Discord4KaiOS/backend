@@ -41,7 +41,7 @@ import {
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
-import { PreloadedUserSettings } from "discord-protos";
+import { PreloadedUserSettings } from "./lib/discord-protos";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
@@ -85,7 +85,7 @@ export class DiscordRelationship extends WritableStore<{
 	id: string;
 	constructor(initial: ClientRelationship, private $users: UsersJar) {
 		super({ type: initial.type, nickname: initial.nickname });
-		this.id = initial.id;
+		this.id = initial.id || initial.user_id;
 	}
 
 	get user() {
@@ -115,7 +115,7 @@ class RelationshipsJar extends Jar<DiscordRelationship> {
 				throw new Error("user not found " + id);
 			}
 			const makeOne = new DiscordRelationship(
-				{ id, type: 0, nickname: null, user: user.value },
+				{ id, type: 0, nickname: null, user_id: id },
 				this.$client.users
 			);
 			this.set(id, makeOne);
@@ -159,7 +159,7 @@ class DMsJar extends Jar<DiscordDMChannel | DiscordGroupDMChannel> {
 }
 
 interface GuildsFolder {
-	id: number;
+	id: number | string;
 	name: string | null;
 	color: number | null;
 	guilds: Array<DiscordGuild>;
@@ -196,13 +196,19 @@ class GuildsJar extends Jar<DiscordGuild> {
 		const all = this.list();
 
 		// cloned folders objects
-		const folders: GuildsFolder[] = this.$client.userSettings.value.guild_folders
-			.filter((a) => a.id !== null)
+		const folders = this.$client.userSettings.value
+			.guildFolders!.folders.filter((a) => a.id)
 			.map((obj) => {
-				return { ...obj, guilds: [] } as any as GuildsFolder;
+				return {
+					guilds: [],
+					id: obj.id!.value,
+					color: obj.color?.value || null,
+					guild_ids: obj.guildIds,
+					name: obj.name?.value || null,
+				} as GuildsFolder;
 			});
-		const arrangement = this.$client.userSettings.value.guild_folders
-			.map((a) => a.guild_ids)
+		const arrangement = this.$client.userSettings.value
+			.guildFolders!.folders.map((a) => a.guildIds)
 			.flat();
 
 		if (arrangement.length) {
@@ -283,8 +289,6 @@ export class DiscordClientReady {
 	// that's deep
 	handleRelationships(...relationships: ClientRelationship[]) {
 		relationships.forEach((r) => {
-			// to avoid user not being found
-			if (r.user) this.addUser(r.user);
 			// it will always return a relationship
 			const has = this.relationships.get(r.id);
 			has.shallowSet({ type: r.type, nickname: r.nickname });
@@ -333,6 +337,22 @@ export class DiscordClientReady {
 		});
 	}
 
+	handleMergedMembers(merged_members: ReadyEvent["merged_members"]) {
+		merged_members.forEach((members, guildIndex) => {
+			const guild = this.guilds.get(this.ready.guilds[guildIndex].id);
+
+			if (!guild) throw new Error("handleMergedMembers guild not found");
+
+			members.forEach((member) => {
+				const user = this.users.get(member.user_id);
+				if (!user) throw new Error("handleMergedMembers user not found");
+
+				const profile = user.profiles.insert(member, guild);
+				guild.members.add(profile);
+			});
+		});
+	}
+
 	constructor(
 		public ready: ReadyEvent,
 		public Gateway: Gateway,
@@ -344,6 +364,8 @@ export class DiscordClientReady {
 
 		this.users = new UsersJar(this);
 		this.relationships = new RelationshipsJar(this);
+		ready.users.forEach((u) => this.addUser(u));
+
 		this.dms = new DMsJar();
 
 		this.userSettings = new DiscordUserSettings(this);
@@ -356,9 +378,7 @@ export class DiscordClientReady {
 		config.user_id = ready.user.id;
 		this.addUser(ready.user);
 
-		ready.relationships.forEach((u) => this.addUser(u.user));
-
-		ready.read_state.forEach((rs) => {
+		ready.read_state.entries.forEach((rs) => {
 			this.readStates.add(rs.id, new DiscordReadState(rs));
 		});
 
@@ -369,6 +389,8 @@ export class DiscordClientReady {
 		});
 
 		const addGuild = (_guild: ClientGuild | GatewayGuildCreateDispatchData) => {
+			ready.guilds.push(_guild as ClientGuild);
+
 			const guild = new DiscordGuild(
 				// nothing should go wrong, right??
 				_guild as ClientGuild,
@@ -382,6 +404,7 @@ export class DiscordClientReady {
 			guild.handleChannels(...(_guild.channels as ClientChannel[]));
 
 			this.guilds.add(_guild.id, guild);
+
 			_guild.members.forEach((m) => {
 				if (!m.user) return;
 				const user = this.addUser(m.user);
@@ -393,6 +416,10 @@ export class DiscordClientReady {
 		};
 
 		ready.guilds.forEach(addGuild);
+
+		Gateway.on("t:ready_supplemental", (evt) => {
+			this.handleMergedMembers(evt.merged_members);
+		});
 
 		Gateway.on("t:guild_create", addGuild);
 		Gateway.on(
@@ -406,7 +433,7 @@ export class DiscordClientReady {
 		);
 
 		/// ANCHOR: guild settings events
-		this.handleGuildSettings(...ready.user_guild_settings);
+		this.handleGuildSettings(...ready.user_guild_settings.entries);
 		Gateway.on("t:user_guild_settings_update", (evt: ClientUserGuildSetting) =>
 			this.handleGuildSettings(evt)
 		);
@@ -636,10 +663,28 @@ export default class DiscordClient extends EventEmitter {
 
 		this.Gateway.once("t:ready", (evt: ReadyEvent) => {
 			try {
-				// @ts-ignore
 				const user_settings = PreloadedUserSettings.fromBase64(evt.user_settings_proto);
-
-				console.log("user_settings", user_settings);
+				evt.user_settings = user_settings;
+				evt.guilds.forEach((a) => {
+					// dirty bit, too lazy to rewrite types sorry
+					if ("properties" in a) {
+						const properties = a.properties;
+						delete a.properties;
+						Object.assign(a, properties);
+					}
+				});
+				// another dirty bit yikes, too complicated
+				evt.merged_members.forEach((members, guildIndex) => {
+					const guild = evt.guilds[guildIndex];
+					guild.members = members.map((a) => {
+						return {
+							...a,
+							user:
+								evt.user.id === a.user_id ? evt.user : evt.users.find((e) => e.id === a.user_id)!,
+							permissions: "wtf?",
+						};
+					});
+				});
 
 				deffered.resolve(new DiscordClientReady(evt, this.Gateway, this.Request, config));
 			} catch (error) {
