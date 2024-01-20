@@ -3,7 +3,16 @@ import Logger from "./Logger";
 import { ClientReadState } from "./lib/types";
 import { Jar, WritableStore } from "./lib/utils";
 
-export class DiscordReadState extends WritableStore<ClientReadState> {
+interface DiscordReadStateProps extends Omit<ClientReadState, "last_message_id"> {
+	/**
+	 *  - undefined -> generated because it was not found
+	 *  - null -> discord says last state was no messages
+	 *  - string -> last message id
+	 */
+	last_message_id: string | null | undefined;
+}
+
+export class DiscordReadState extends WritableStore<DiscordReadStateProps> {
 	increment(count = 1) {
 		this.shallowUpdate((s) => ({
 			...s,
@@ -74,7 +83,7 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 			}
 
 			const newState = new DiscordReadState({
-				last_message_id: null,
+				last_message_id: undefined,
 				last_pin_timestamp: null,
 				id: channelID,
 				mention_count: 0,
