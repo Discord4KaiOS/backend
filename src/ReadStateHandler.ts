@@ -82,14 +82,22 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 				throw new Error("channel was not found");
 			}
 
-			const newState = new DiscordReadState({
-				last_message_id: undefined,
-				last_pin_timestamp: null,
-				id: channelID,
-				mention_count: 0,
-			});
-			this.set(channelID, newState);
-			return newState;
+			if ("lastMessageID" in channel) {
+				// weeirrrddd
+				const lastMessageID = channel.lastMessageID.value as string | null;
+
+				const newState = new DiscordReadState({
+					last_message_id: lastMessageID,
+					last_pin_timestamp: null,
+					id: channelID,
+					mention_count: 0,
+				});
+				this.set(channelID, newState);
+				return newState;
+			} else {
+				ReadStateHandler.logger.err("invalid channel", channelID)();
+				throw new Error("invalid channel");
+			}
 		}
 
 		return has;
