@@ -3,8 +3,7 @@ import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
 import { Config } from "./config";
 import EventEmitter from "./lib/EventEmitter";
-
-// pretty much deprecated now
+import { ClientReadState } from "./lib/types";
 
 interface Props {
 	config?: Config;
@@ -77,23 +76,33 @@ interface MFAResponse {
 	webauthn: null;
 }
 
-export default async function setup(props: PropsSignIn): Promise<DiscordClient | MFA>;
-export default async function setup(props: PropsToken): Promise<DiscordClient>;
-export default async function setup(props: PropsSignIn | PropsToken) {
-	const logger = new Logger("setup");
+interface Cache {
+	readStates: ClientReadState[];
+}
 
-	const config = props.config || {};
+export default class DiscordSetup {
+	result: DiscordClient | MFA | null = null;
 
-	const req = new DiscordRequest(config);
+	constructor(public cache: Cache) {}
 
-	if ("token" in props) {
-		logger.dbg("token provided")();
-		return new DiscordClient(req, props.token, config);
-	}
+	async login(props: PropsSignIn): Promise<DiscordClient | MFA>;
+	async login(props: PropsToken): Promise<DiscordClient>;
+	async login(props: PropsSignIn | PropsToken) {
+		this.result = null;
+		const logger = new Logger("setup");
 
-	const { email, password } = props;
+		const config = props.config || {};
 
-	/*
+		const req = new DiscordRequest(config);
+
+		if ("token" in props) {
+			logger.dbg("token provided")();
+			return (this.result = new DiscordClient(req, props.token, config));
+		}
+
+		const { email, password } = props;
+
+		/*
   intercepted 11/16/2023
 
   login postReq
@@ -107,17 +116,17 @@ export default async function setup(props: PropsSignIn | PropsToken) {
 	}
   */
 
-	const loginReq = req.post<TokenResponse | MFAResponse>("auth/login", {
-		data: {
-			login: email,
-			password,
-			undelete: false,
-			login_source: null,
-			gift_code_sku_id: null,
-		},
-	});
+		const loginReq = req.post<TokenResponse | MFAResponse>("auth/login", {
+			data: {
+				login: email,
+				password,
+				undelete: false,
+				login_source: null,
+				gift_code_sku_id: null,
+			},
+		});
 
-	/*
+		/*
   intercepted 11/16/2023
 
   MFA response
@@ -133,11 +142,12 @@ export default async function setup(props: PropsSignIn | PropsToken) {
 	}
   
   */
-	const loginResp = await loginReq.response();
+		const loginResp = await loginReq.response();
 
-	if ("mfa" in loginResp) {
-		return new MFA(req, loginResp.ticket, config);
+		if ("mfa" in loginResp) {
+			return (this.result = new MFA(req, loginResp.ticket, config));
+		}
+
+		return (this.result = new DiscordClient(req, loginResp.token, config));
 	}
-
-	return new DiscordClient(req, loginResp.token, config);
 }

@@ -7,6 +7,7 @@ import type {
 	GatewayMessageDeleteBulkDispatchData,
 	GatewayMessageDeleteDispatchData,
 	GatewayMessageUpdateDispatchData,
+	GatewayPresenceUpdateDispatchData,
 	GatewayTypingStartDispatchData,
 } from "discord-api-types/v10";
 import Logger from "./Logger";
@@ -99,6 +100,7 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:guild_delete": [GatewayGuildDeleteDispatchData];
 
 	"t:guild_member_update": [GatewayGuildMemberUpdateDispatchData];
+	"t:presence_update": [GatewayPresenceUpdateDispatchData];
 
 	close: [];
 	[x: string]: any[];

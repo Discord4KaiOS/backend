@@ -21,6 +21,9 @@ import type {
 	Snowflake,
 	APIMessage,
 	GatewayGuildCreateDispatchData,
+	GatewayActivity,
+	PresenceUpdateReceiveStatus,
+	GatewayPresenceClientStatus,
 } from "discord-api-types/v10";
 import {
 	DiscordDMChannel,
@@ -28,21 +31,19 @@ import {
 	DiscordGroupDMChannel,
 	DiscordGuildChannelCategory,
 	DiscordGuildTextChannel,
-	MessagesJar,
 } from "./DiscordChannels";
 import {
 	WritableStore,
 	Jar,
-	spread,
 	convertSnowflakeToDate,
 	ChannelType,
 	GuildTextChannelType,
-	toVoid,
 } from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
 import { PreloadedUserSettings } from "./lib/discord-protos";
+import { PresenceUpdateStatus } from "discord-api-types/v9";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
@@ -66,14 +67,18 @@ export class DiscordUser extends WritableStore<ClientAPIUser> {
 	id: string;
 	$users: UsersJar;
 
-	constructor(public $: ClientAPIUser, public $relationships: RelationshipsJar) {
+	constructor(public $: ClientAPIUser, public $client: DiscordClientReady) {
 		super($);
 		this.id = $.id;
-		this.$users = $relationships.$client.users;
+		this.$users = $client.users;
 	}
 
 	get relationship() {
-		return this.$relationships.get(this.id);
+		return this.$client.relationships.get(this.id);
+	}
+
+	get presence() {
+		return this.$client.presences.get(this.id);
 	}
 
 	profiles = new ServerProfilesJar(this);
@@ -270,6 +275,28 @@ class DiscordUserSettings extends WritableStore<ReadyEvent["user_settings"]> {
 	}
 }
 
+export class DiscordPresence extends WritableStore<{
+	activities: GatewayActivity[];
+	status: PresenceUpdateReceiveStatus;
+	client_status: GatewayPresenceClientStatus | null;
+}> {}
+
+class PresencesJar extends Jar<DiscordPresence> {
+	get(id: string) {
+		const has = super.get(id);
+		if (!has) {
+			const presence = new DiscordPresence({
+				activities: [],
+				status: PresenceUpdateStatus.Offline,
+				client_status: null,
+			});
+
+			return presence;
+		}
+		return has;
+	}
+}
+
 export class DiscordClientReady {
 	static logger = new Logger("DiscordClientReady");
 	config: Config;
@@ -282,6 +309,7 @@ export class DiscordClientReady {
 	guilds: GuildsJar;
 	guildSettings: DiscordGuildSettingsJar;
 	readStates: ReadStateHandler;
+	presences = new PresencesJar();
 
 	close() {
 		this.Gateway.close();
@@ -636,6 +664,14 @@ export class DiscordClientReady {
 				channel.typingState.add(this.users.get(evt.user_id)!);
 			}
 		});
+
+		Gateway.on("t:presence_update", (evt) => {
+			this.presences.get(evt.user.id).shallowSet({
+				client_status: evt.client_status || null,
+				status: evt.status || PresenceUpdateStatus.Offline,
+				activities: evt.activities || [],
+			});
+		});
 	}
 
 	addUser(user: ClientAPIUser) {
@@ -648,7 +684,7 @@ export class DiscordClientReady {
 				has.setStateDeep(user);
 			} else has.setState(user);
 		} else {
-			const _user = new DiscordUser(user, this.relationships);
+			const _user = new DiscordUser(user, this);
 			this.users.set(user.id, _user);
 			return _user;
 		}
@@ -688,6 +724,7 @@ export default class DiscordClient extends EventEmitter {
 						Object.assign(a, properties);
 					}
 				});
+
 				// another dirty bit yikes, too complicated
 				evt.merged_members.forEach((members, guildIndex) => {
 					const guild = evt.guilds[guildIndex];
