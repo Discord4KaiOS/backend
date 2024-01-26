@@ -292,6 +292,8 @@ class PresencesJar extends Jar<DiscordPresence> {
 				client_status: null,
 			});
 
+			this.set(id, presence);
+
 			return presence;
 		}
 		return has;
