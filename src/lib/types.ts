@@ -9,6 +9,8 @@ import type {
 	APIGuildForumChannel,
 	APIGuildCategoryChannel,
 	APIVoiceChannelBase,
+	GatewayPresenceUpdate,
+	Snowflake,
 } from "discord-api-types/v10";
 export type * from "discord-api-types/v10";
 import type { ChannelType } from "./utils";
@@ -104,10 +106,20 @@ export interface ClientGuild extends APIGuild {
 	members: APIInteractionGuildMember[];
 }
 
+interface PartialPresence
+	extends Pick<GatewayPresenceUpdate, "activities" | "client_status" | "status"> {
+	user_id: Snowflake;
+}
+
 // DISCORD MAADE BREAKING CHANGES GRRRR
 export interface ReadySupplementalEvent {
 	// incomplete i'll add more if I figure out how it works
 	merged_members: ClientGuildMember[][];
+
+	merged_presences: {
+		friends: PartialPresence[];
+		guilds: PartialPresence[][];
+	};
 }
 
 interface IconEmoji {

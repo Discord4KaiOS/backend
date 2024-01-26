@@ -12,6 +12,7 @@ import {
 	ClientChannelOverride,
 	ClientAPIUser,
 	ClientGuild,
+	ReadySupplementalEvent,
 } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
 import type {
@@ -382,6 +383,18 @@ export class DiscordClientReady {
 		});
 	}
 
+	handleMergedPresences(merged_presences: ReadySupplementalEvent["merged_presences"]) {
+		Object.values(merged_presences)
+			.flat(2)
+			.forEach((a) => {
+				this.presences.get(a.user_id).shallowSet({
+					client_status: a.client_status || null,
+					status: a.status || PresenceUpdateStatus.Offline,
+					activities: a.activities || [],
+				});
+			});
+	}
+
 	constructor(
 		public ready: ReadyEvent,
 		public Gateway: Gateway,
@@ -448,6 +461,7 @@ export class DiscordClientReady {
 
 		Gateway.on("t:ready_supplemental", (evt) => {
 			this.handleMergedMembers(evt.merged_members);
+			this.handleMergedPresences(evt.merged_presences);
 		});
 
 		Gateway.on("t:guild_create", addGuild);
