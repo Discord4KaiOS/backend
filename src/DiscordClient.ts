@@ -44,7 +44,6 @@ import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
 import { PreloadedUserSettings } from "./lib/discord-protos";
-import { PresenceUpdateStatus } from "discord-api-types/v9";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
@@ -288,7 +287,7 @@ class PresencesJar extends Jar<DiscordPresence> {
 		if (!has) {
 			const presence = new DiscordPresence({
 				activities: [],
-				status: PresenceUpdateStatus.Offline,
+				status: "offline" as PresenceUpdateReceiveStatus,
 				client_status: null,
 			});
 
@@ -391,7 +390,7 @@ export class DiscordClientReady {
 			.forEach((a) => {
 				this.presences.get(a.user_id).shallowSet({
 					client_status: a.client_status || null,
-					status: a.status || PresenceUpdateStatus.Offline,
+					status: a.status || ("offline" as PresenceUpdateReceiveStatus),
 					activities: a.activities || [],
 				});
 			});
@@ -684,7 +683,7 @@ export class DiscordClientReady {
 		Gateway.on("t:presence_update", (evt) => {
 			this.presences.get(evt.user.id).shallowSet({
 				client_status: evt.client_status || null,
-				status: evt.status || PresenceUpdateStatus.Offline,
+				status: evt.status || ("offline" as PresenceUpdateReceiveStatus),
 				activities: evt.activities || [],
 			});
 		});
