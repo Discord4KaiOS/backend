@@ -700,6 +700,10 @@ export class DiscordClientReady {
 			} else has.setState(user);
 		} else {
 			const _user = new DiscordUser(user, this);
+			// webhook user objects should not be cached
+			if (user.bot && user.discriminator == "0000") {
+				return _user;
+			}
 			this.users.set(user.id, _user);
 			return _user;
 		}
