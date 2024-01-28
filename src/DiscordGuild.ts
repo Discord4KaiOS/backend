@@ -324,15 +324,36 @@ export class DiscordGuild extends WritableStore<
 	 * undocumented "Lazy Guilds" api, it will request for members and other state changes for the guild
 	 */
 	lazy(user_ids?: string[]) {
+		// absolutely have no idea what this is for
 		this.Gateway.send({
-			op: 14,
+			op: 36,
 			d: {
-				activities: true,
 				guild_id: this.id,
-				threads: false,
-				typing: true,
 			},
 		});
+
+		// op: 14 seems to be non existent now
+		this.Gateway.send({
+			op: 37,
+			d: {
+				subscriptions: {
+					[this.id]: {
+						activities: true,
+						threads: false,
+						typing: true,
+
+						/*
+						// there's also
+						channels: {
+							[channel.id]: [ [0,99] ]
+						}
+						*/
+					},
+				},
+			},
+		});
+
+		// this seems to still be existent
 		this.Gateway.send({
 			op: 8,
 			d: {
