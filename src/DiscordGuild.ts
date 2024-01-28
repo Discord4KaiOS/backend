@@ -320,10 +320,11 @@ export class DiscordGuild extends WritableStore<
 		return false;
 	}
 
-	/**
-	 * undocumented "Lazy Guilds" api, it will request for members and other state changes for the guild
-	 */
-	lazy(user_ids?: string[]) {
+	lazySubscribed = false;
+
+	lazySubscribe() {
+		this.lazySubscribed = true;
+
 		// absolutely have no idea what this is for
 		this.Gateway.send({
 			op: 36,
@@ -352,17 +353,26 @@ export class DiscordGuild extends WritableStore<
 				},
 			},
 		});
+	}
 
-		// this seems to still be existent
-		this.Gateway.send({
-			op: 8,
-			d: {
-				guild_id: [this.id],
-				query: "",
-				limit: 100,
-				presences: false,
-				user_ids,
-			},
-		});
+	/**
+	 * undocumented "Lazy Guilds" api, it will request for members and other state changes for the guild
+	 */
+	lazy(user_ids?: string[]) {
+		// do this is it hasn't been done yet
+		if (!this.lazySubscribed) this.lazySubscribe();
+
+		// this seems to still be existent, should only work if user_ids is passed
+		if (user_ids)
+			this.Gateway.send({
+				op: 8,
+				d: {
+					guild_id: [this.id],
+					query: undefined,
+					limit: undefined,
+					presences: false,
+					user_ids,
+				},
+			});
 	}
 }

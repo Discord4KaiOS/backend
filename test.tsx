@@ -86,9 +86,9 @@ if (result instanceof MFA) {
 				name = dm.value.name;
 			}
 
-			console.log(dm.readState, !dm.readState);
+			// console.log(dm.readState, !dm.readState);
 
-			logger.dbg(name, dm, dm.value)();
+			// logger.dbg(name, dm, dm.value)();
 		});
 	}
 
