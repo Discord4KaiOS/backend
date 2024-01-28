@@ -687,6 +687,29 @@ export class DiscordClientReady {
 				activities: evt.activities || [],
 			});
 		});
+
+		Gateway.on("t:guild_members_chunk", (evt) => {
+			evt.members.forEach(({ user, ...rest }) => {
+				if (!user) return;
+
+				const _user = this.addUser(user);
+				const guild = this.guilds.get(evt.guild_id);
+				if (!guild) return;
+
+				const profile = _user.profiles.insert(rest, guild);
+				guild.members.add(profile);
+			});
+
+			evt.presences?.forEach((a) => {
+				// assuming from the newer api changes
+				const user_id = ("user_id" in a && (a.user_id as string)) || a.user.id;
+				this.presences.get(user_id).shallowSet({
+					client_status: a.client_status || null,
+					status: a.status || ("offline" as PresenceUpdateReceiveStatus),
+					activities: a.activities || [],
+				});
+			});
+		});
 	}
 
 	addUser(user: ClientAPIUser) {
