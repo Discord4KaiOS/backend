@@ -7,6 +7,11 @@ import type {
 	GatewayMessageCreateDispatchData,
 	GatewayMessageDeleteBulkDispatchData,
 	GatewayMessageDeleteDispatchData,
+	GatewayMessageReactionAddDispatch,
+	GatewayMessageReactionAddDispatchData,
+	GatewayMessageReactionRemoveAllDispatch,
+	GatewayMessageReactionRemoveDispatchData,
+	GatewayMessageReactionRemoveEmojiDispatchData,
 	GatewayMessageUpdateDispatchData,
 	GatewayPresenceUpdateDispatchData,
 	GatewayTypingStartDispatchData,
@@ -104,6 +109,11 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:presence_update": [GatewayPresenceUpdateDispatchData];
 
 	"t:guild_members_chunk": [GatewayGuildMembersChunkDispatchData];
+
+	"t:message_reaction_add": [GatewayMessageReactionAddDispatchData];
+	"t:message_reaction_remove": [GatewayMessageReactionRemoveDispatchData];
+	"t:message_reaction_remove_all": [GatewayMessageReactionRemoveAllDispatch];
+	"t:message_reaction_remove_emoji": [GatewayMessageReactionRemoveEmojiDispatchData];
 
 	close: [];
 	[x: string]: any[];

@@ -6,6 +6,8 @@ import type {
 	ChannelFlags,
 	Snowflake,
 	ThreadAutoArchiveDuration,
+	APIEmoji,
+	APIReaction,
 } from "discord-api-types/v10";
 
 import {
@@ -94,6 +96,144 @@ let preserveDeleted = false;
 /**
  * TODO: DiscordReactions/DiscordReaction class
  */
+
+export class MessageReaction extends WritableStore<{
+	count: number;
+
+	/**
+	 * reacted by ME-hee-hee
+	 */
+	me: boolean;
+	emoji: APIEmoji;
+}> {
+	constructor(public $: APIReaction, public $message: DiscordMessage<DiscordTextChannelProps>) {
+		super({
+			count: $.count,
+			me: $.me,
+			emoji: $.emoji,
+		});
+	}
+
+	toggle() {
+		return this.$message.$channel.Request[this.value.me ? "delete" : "put"](
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
+				this.$.emoji
+			)}/@me`,
+			{}
+		);
+	}
+
+	/**
+	 *
+	 * @param me whether the reaction was added by me
+	 */
+	addCount(me = false) {
+		const count = this.value.count + 1;
+		this.setState({ count, me });
+	}
+
+	/**
+	 *
+	 * @param me whether the reaction was removed by me
+	 */
+	removeCount(me = false) {
+		const count = this.value.count - 1;
+
+		this.setState({ count, me: me ? false : this.value.me });
+	}
+}
+
+function emojiURI(emoji: APIEmoji | string) {
+	const en = encodeURIComponent;
+	if (typeof emoji === "object") {
+		return emoji.id ? en(emoji.name + ":" + emoji.id) : en(emoji.name || "");
+	}
+	return en(String(emoji));
+}
+
+export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
+	state = new WritableStore<MessageReaction[]>([]);
+
+	constructor(public $message: DiscordMessage<any>) {
+		super();
+	}
+
+	refresh() {
+		this.list().forEach((a) => {
+			const emoji = a.value.emoji;
+			if (a.value.count === 0) this.delete(emoji.id || emoji.name!);
+		});
+
+		this.state.set(this.list());
+	}
+
+	insert(reaction: APIReaction) {
+		const id = reaction.emoji.id || reaction.emoji.name;
+		if (!id) throw new Error("Invalid emoji");
+		const has = this.get(id);
+
+		if (has) {
+			has.setState(reaction);
+			return has;
+		}
+
+		const r = new MessageReaction(reaction, this.$message);
+
+		this.set(emojiURI(reaction.emoji), r);
+
+		this.refresh();
+		return r;
+	}
+
+	detach(emoji: APIEmoji) {
+		const id = emoji.id || emoji.name;
+		if (!id) throw new Error("Invalid emoji");
+		const has = this.get(id);
+		if (!has) return;
+
+		this.delete(id);
+		this.refresh();
+	}
+
+	detachAll() {
+		this.state.set([]);
+		this.clear();
+	}
+
+	private reaction(method: "put" | "delete", emoji: APIEmoji | string, user = "@me") {
+		return this.$message.$channel.Request[method](
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
+				emoji
+			)}/${user}`,
+			{}
+		);
+	}
+
+	addReaction(emoji: APIEmoji | string, user = "@me") {
+		return this.reaction("put", emoji, user);
+	}
+
+	removeReaction(emoji: APIEmoji | string, user = "@me") {
+		return this.reaction("delete", emoji, user);
+	}
+
+	deleteAllReaction() {
+		return this.$message.$channel.Request.delete(
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions`,
+			{}
+		);
+	}
+
+	deleteAllReactionEmoji(emoji: APIEmoji | string) {
+		return this.$message.$channel.Request.delete(
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
+				emoji
+			)}`,
+			{}
+		);
+	}
+}
+
 export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableStore<
 	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
 > {
@@ -108,6 +248,8 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 	static set preserveDeleted(val) {
 		preserveDeleted = val;
 	}
+
+	reactions = new DiscordMessageReactionsJar(this);
 
 	deleted = new WritableStore(false);
 
@@ -137,6 +279,10 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 		this.reference = $.message_reference;
 
 		this.user_id = $channel.Request.config.user_id!;
+
+		$.reactions?.forEach((a) => {
+			this.reactions.insert(a);
+		});
 	}
 
 	delete() {

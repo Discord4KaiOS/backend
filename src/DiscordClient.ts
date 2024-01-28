@@ -625,6 +625,7 @@ export class DiscordClientReady {
 
 			return null;
 		};
+
 		const errJarNotFound = (m: Partial<APIMessage>, type: string) => {
 			const text = `message_${type}: channel not found or invalid`;
 			this.logger.err(text, m)();
