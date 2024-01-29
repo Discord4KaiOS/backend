@@ -99,7 +99,6 @@ let preserveDeleted = false;
 
 export class MessageReaction extends WritableStore<{
 	count: number;
-
 	/**
 	 * reacted by ME-hee-hee
 	 */
@@ -195,6 +194,29 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 		this.refresh();
 	}
 
+	addCount(emoji: APIEmoji, me = false) {
+		const id = emoji.id || emoji.name;
+		if (!id) throw new Error("Invalid emoji");
+		const has = this.get(id);
+		if (!has) {
+			this.insert({ emoji, count: 1, me });
+			return;
+		}
+
+		has.addCount(me);
+		this.refresh();
+	}
+
+	removeCount(emoji: APIEmoji, me = false) {
+		const id = emoji.id || emoji.name;
+		if (!id) throw new Error("Invalid emoji");
+		const has = this.get(id);
+		if (!has) return;
+
+		has.removeCount(me);
+		this.refresh();
+	}
+
 	detachAll() {
 		this.state.set([]);
 		this.clear();
@@ -234,9 +256,9 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 	}
 }
 
-export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableStore<
-	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
-> {
+export class DiscordMessage<
+	T extends DiscordTextChannelProps = DiscordTextChannelProps
+> extends WritableStore<Pick<APIMessage, "content" | "pinned" | "edited_timestamp">> {
 	get [Symbol.toStringTag || Symbol()]() {
 		return "DiscordMessage";
 	}
@@ -249,8 +271,6 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 		preserveDeleted = val;
 	}
 
-	reactions = new DiscordMessageReactionsJar(this);
-
 	deleted = new WritableStore(false);
 
 	embeds = new WritableStore<APIMessage["embeds"]>([]);
@@ -259,6 +279,8 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 	reference?: APIMessageReference;
 	id: string;
 	user_id: string;
+
+	reactions: DiscordMessageReactionsJar;
 
 	constructor(
 		public $: APIMessage,
@@ -279,6 +301,8 @@ export class DiscordMessage<T extends DiscordTextChannelProps> extends WritableS
 		this.reference = $.message_reference;
 
 		this.user_id = $channel.Request.config.user_id!;
+
+		this.reactions = new DiscordMessageReactionsJar(this);
 
 		$.reactions?.forEach((a) => {
 			this.reactions.insert(a);
@@ -345,7 +369,9 @@ function minutesDiff(performance_now: number) {
 	return Math.floor(Math.abs(performance.now() - performance_now) / 1000 / 60);
 }
 
-export class MessagesJar<T extends DiscordTextChannelProps> extends Jar<DiscordMessage<T>> {
+export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends Jar<
+	DiscordMessage<T>
+> {
 	constructor(public $channel: DiscordTextChannel<T>) {
 		super();
 	}
@@ -567,7 +593,9 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 	}
 }
 
-abstract class DiscordTextChannel<T extends DiscordTextChannelProps> extends DiscordChannelBase<T> {
+abstract class DiscordTextChannel<
+	T extends DiscordTextChannelProps = DiscordTextChannelProps
+> extends DiscordChannelBase<T> {
 	abstract type: TextChannelType;
 	abstract id: Snowflake;
 
@@ -678,7 +706,7 @@ interface DiscordGuildTextChannelProps extends DiscordTextChannelProps {
 
 type GuildTextChannelType = Exclude<TextChannelType, ChannelType.DM | ChannelType.GroupDM>;
 export class DiscordGuildTextChannel<
-	R extends GuildTextChannelType,
+	R extends GuildTextChannelType = GuildTextChannelType,
 	T extends DiscordGuildTextChannelProps = DiscordGuildTextChannelProps
 > extends DiscordTextChannel<T> {
 	Request: DiscordRequest;
@@ -706,7 +734,9 @@ export class DiscordGuildTextChannel<
 	}
 }
 
-export class DiscordDirectMessage<T extends DiscordDMBaseProps> extends DiscordMessage<T> {
+export class DiscordDirectMessage<
+	T extends DiscordDMBaseProps = DiscordDMBaseProps
+> extends DiscordMessage<T> {
 	/**
 	 * @param appended - whether this function is being called because a new message was created
 	 */
@@ -718,7 +748,9 @@ export class DiscordDirectMessage<T extends DiscordDMBaseProps> extends DiscordM
 }
 
 interface DiscordDMBaseProps extends DiscordTextChannelProps {}
-abstract class DiscordDMBase<T extends DiscordDMBaseProps> extends DiscordTextChannel<T> {
+abstract class DiscordDMBase<
+	T extends DiscordDMBaseProps = DiscordChannelBaseProps
+> extends DiscordTextChannel<T> {
 	recipients = new WritableStore<DiscordUser[]>([]);
 
 	abstract type: TextChannelType;

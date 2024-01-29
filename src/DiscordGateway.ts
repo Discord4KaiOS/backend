@@ -10,6 +10,7 @@ import type {
 	GatewayMessageReactionAddDispatch,
 	GatewayMessageReactionAddDispatchData,
 	GatewayMessageReactionRemoveAllDispatch,
+	GatewayMessageReactionRemoveAllDispatchData,
 	GatewayMessageReactionRemoveDispatchData,
 	GatewayMessageReactionRemoveEmojiDispatchData,
 	GatewayMessageUpdateDispatchData,
@@ -112,7 +113,7 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 
 	"t:message_reaction_add": [GatewayMessageReactionAddDispatchData];
 	"t:message_reaction_remove": [GatewayMessageReactionRemoveDispatchData];
-	"t:message_reaction_remove_all": [GatewayMessageReactionRemoveAllDispatch];
+	"t:message_reaction_remove_all": [GatewayMessageReactionRemoveAllDispatchData];
 	"t:message_reaction_remove_emoji": [GatewayMessageReactionRemoveEmojiDispatchData];
 
 	close: [];

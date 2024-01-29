@@ -3,7 +3,6 @@ import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
 import { Config } from "./config";
 import EventEmitter from "./lib/EventEmitter";
-import { ClientReadState } from "./lib/types";
 
 interface Props {
 	config?: Config;
@@ -76,14 +75,12 @@ interface MFAResponse {
 	webauthn: null;
 }
 
-interface Cache {
-	readStates: ClientReadState[];
-}
+interface Cache {}
 
 export default class DiscordSetup {
 	result: DiscordClient | MFA | null = null;
 
-	constructor(public cache: Cache) {}
+	constructor(public cache?: Cache) {}
 
 	async login(props: PropsSignIn): Promise<DiscordClient | MFA>;
 	async login(props: PropsToken): Promise<DiscordClient>;
