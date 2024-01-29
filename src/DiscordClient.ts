@@ -616,25 +616,42 @@ export class DiscordClientReady {
 			if (findChannel) return findChannel;
 		};
 
-		const getMessagesJar = (channel_id: string, guild_id?: string) => {
+		const getMessagesJar = (channel_id: string, guild_id?: string, log?: any) => {
 			const channel = findChannel(channel_id, guild_id);
 
 			if (channel && "messages" in channel) {
 				return channel.messages;
 			}
 
-			return null;
+			throw errJarNotFound(log);
 		};
 
-		const errJarNotFound = (m: Partial<APIMessage>, type: string) => {
-			const text = `message_${type}: channel not found or invalid`;
-			this.logger.err(text, m)();
+		const errJarNotFound = (m: any) => {
+			const text = `message: channel not found or invalid`;
+			this.logger.err(m)();
 			return new Error(text);
+		};
+
+		const getMessage = (id: string, channel_id: string, guild_id?: string) => {
+			const mJar = getMessagesJar(channel_id, guild_id);
+			if (!mJar) throw errJarNotFound({ channel_id, guild_id, id });
+			const message = mJar.get(id);
+
+			if (!message) {
+				this.logger.err(
+					"message_reaction_remove: message not found or invalid",
+					channel_id,
+					guild_id,
+					id
+				)();
+				throw new Error("message not found " + `${channel_id} ${guild_id} ${id}`);
+			}
+
+			return message;
 		};
 
 		Gateway.on("t:message_create", (m) => {
 			const mJar = getMessagesJar(m.channel_id, m.guild_id);
-			if (!mJar) throw errJarNotFound(m, "create");
 
 			const mm = mJar.append(m);
 			mm.$channel.lastMessageID.set(m.id);
@@ -648,72 +665,41 @@ export class DiscordClientReady {
 			}
 		});
 		Gateway.on("t:message_update", (m) => {
-			const mJar = getMessagesJar(m.channel_id, m.guild_id);
-			if (!mJar) throw errJarNotFound(m, "update");
+			const mJar = getMessagesJar(m.channel_id, m.guild_id, m);
 
 			mJar.update(m);
 		});
 		Gateway.on("t:message_delete", (evt) => {
-			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
-			if (!mJar) throw errJarNotFound(evt, "delete");
+			const mJar = getMessagesJar(evt.channel_id, evt.guild_id, evt);
 
 			mJar.remove(evt.id);
 		});
 		Gateway.on("t:message_delete_bulk", (evt) => {
 			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
-			if (!mJar) throw errJarNotFound(evt, "delete_bulk");
 
 			mJar.removeBulk(evt.ids);
 		});
 
 		Gateway.on("t:message_reaction_add", (evt) => {
-			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
-			if (!mJar) throw errJarNotFound(evt, "reaction_add");
-			const message = mJar.get(evt.message_id);
-
-			if (!message) {
-				this.logger.err("message_reaction_add: message not found or invalid", evt)();
-				return;
-			}
+			const message = getMessage(evt.message_id, evt.channel_id, evt.guild_id);
 
 			message.reactions.addCount(evt.emoji, evt.user_id === this.ready.user.id);
 		});
 
 		Gateway.on("t:message_reaction_remove", (evt) => {
-			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
-			if (!mJar) throw errJarNotFound(evt, "reaction_remove");
-			const message = mJar.get(evt.message_id);
-
-			if (!message) {
-				this.logger.err("message_reaction_remove: message not found or invalid", evt)();
-				return;
-			}
+			const message = getMessage(evt.message_id, evt.channel_id, evt.guild_id);
 
 			message.reactions.removeCount(evt.emoji, evt.user_id === this.ready.user.id);
 		});
 
 		Gateway.on("t:message_reaction_remove_all", (evt) => {
-			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
-			if (!mJar) throw errJarNotFound(evt, "reaction_remove_all");
-			const message = mJar.get(evt.message_id);
-
-			if (!message) {
-				this.logger.err("message_reaction_remove_all: message not found or invalid", evt)();
-				return;
-			}
+			const message = getMessage(evt.message_id, evt.channel_id, evt.guild_id);
 
 			message.reactions.detachAll();
 		});
 
 		Gateway.on("t:message_reaction_remove_emoji", (evt) => {
-			const mJar = getMessagesJar(evt.channel_id, evt.guild_id);
-			if (!mJar) throw errJarNotFound(evt, "reaction_remove_all");
-			const message = mJar.get(evt.message_id);
-
-			if (!message) {
-				this.logger.err("message_reaction_remove_all: message not found or invalid", evt)();
-				return;
-			}
+			const message = getMessage(evt.message_id, evt.channel_id, evt.guild_id);
 
 			message.reactions.detach(evt.emoji);
 		});
@@ -775,7 +761,7 @@ export class DiscordClientReady {
 			} else has.setState(user);
 		} else {
 			const _user = new DiscordUser(user, this);
-			// webhook user objects should not be cached
+			// webhook users should not be cached
 			if (user.bot && user.discriminator == "0000") {
 				return _user;
 			}

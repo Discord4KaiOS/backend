@@ -1,7 +1,7 @@
 {
-	"name": "kaios-preact-starter",
+	"name": "discord",
 	"private": true,
-	"version": "0.0.8",
+	"version": "1.0.2",
 	"type": "module",
 	"scripts": {
 		"dev": "bun --hot --inspect-wait test.tsx"

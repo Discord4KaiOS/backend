@@ -33,6 +33,7 @@ type TextChannelType =
 	| ChannelType.GuildMedia;
 
 import { DiscordGuild } from "./DiscordGuild";
+import { Signal } from "@preact/signals";
 
 export function generateNonce() {
 	return String(Date.now() * 512 * 1024);
@@ -384,6 +385,14 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 	newMessage(message: APIMessage) {
 		const user = this.$channel.$client.addUser(message.author);
 		const m = new this._messageType(message, user, this.$channel);
+
+		// if waiting for a message
+		const waiting = this.waiting.get(m.id);
+		if (waiting) {
+			this.waiting.delete(m.id);
+			waiting.value = m;
+		}
+
 		return m;
 	}
 
@@ -406,6 +415,17 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 	setMessageType(type: typeof DiscordMessage) {
 		this._messageType = type;
+	}
+
+	waiting = new Map<string, Signal<DiscordMessage<T> | null>>();
+
+	waitForMessage(id: string) {
+		const has = this.get(id);
+		if (has) return has;
+
+		const signal = new Signal<DiscordMessage<T> | null>();
+		this.waiting.set(id, signal);
+		return signal;
 	}
 
 	update(message: Partial<APIMessage>) {
@@ -467,6 +487,24 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 				filtered.push(has);
 			} else {
 				const message = this.newMessage(m);
+
+				// if message is a reply,
+				// then add reference to jar without converging
+				if (m.referenced_message) {
+					const ref = m.referenced_message;
+					const has = this.get(ref.id);
+					if (has) {
+						has.shallowSet({
+							content: ref.content,
+							edited_timestamp: ref.edited_timestamp,
+							pinned: ref.pinned,
+						});
+					} else {
+						const m = this.newMessage(ref);
+						this.set(m.id, m);
+					}
+				}
+
 				this.set(m.id, message);
 
 				filtered.push(message);
