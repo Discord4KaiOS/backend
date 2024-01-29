@@ -1,4 +1,5 @@
 import { PreloadedUserSettings } from ".";
+
 const encoded = PreloadedUserSettings.toBase64({
     status: {
         status: {
@@ -6,11 +7,13 @@ const encoded = PreloadedUserSettings.toBase64({
         },
         customStatus: {
             text: "Hello World",
-            emojiId: 1197786668183326750n,
+            emojiId: 0n,
             emojiName: "",
             expiresAtMs: 0n,
         },
     },
 });
+
 const decoded = PreloadedUserSettings.fromBase64(encoded);
+
 console.log(encoded, decoded);

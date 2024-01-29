@@ -1,6 +1,5 @@
 /// <reference types="bun-types" />
 
-import { appendFile } from "fs/promises";
 import { DiscordClient, DiscordRelationship, MFA, setup } from "./index";
 // @ts-ignore
 import XMLHttpRequest from "./scripts/xhr.js";
@@ -17,10 +16,6 @@ global.XMLHttpRequest = XMLHttpRequest as any;
 if (global.lastResult) {
 	const r = global.lastResult as DiscordClient;
 	r.close();
-}
-
-function setToken(token: string) {
-	appendFile(".env", `\nTOKEN=${token}`);
 }
 
 const spread = (
