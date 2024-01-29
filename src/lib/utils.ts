@@ -2,9 +2,7 @@ import type { Snowflake } from "discord-api-types/globals";
 import Logger from "../Logger";
 import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
-// import JSBI from "jsbi";
-// @ts-ignore
-import { BigInteger as JSBI } from "js-big-integer";
+import JSBI from "jsbi";
 
 import type { Signal, signal } from "@preact/signals";
 
