@@ -382,17 +382,17 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 	private _messageType = DiscordMessage;
 
-	newMessage(message: APIMessage) {
-		const user = this.$channel.$client.addUser(message.author);
-		const m = new this._messageType(message, user, this.$channel);
-
-		// if waiting for a message
+	updateWaiting(m: DiscordMessage<T>) {
 		const waiting = this.waiting.get(m.id);
 		if (waiting) {
 			this.waiting.delete(m.id);
 			waiting.value = m;
 		}
+	}
 
+	newMessage(message: APIMessage) {
+		const user = this.$channel.$client.addUser(message.author);
+		const m = new this._messageType(message, user, this.$channel);
 		return m;
 	}
 
@@ -463,6 +463,7 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 		const m = this.newMessage(message);
 		this.state.update((s) => s.concat(m));
 		this.set(m.id, m);
+		this.updateWaiting(m);
 
 		this.lastPush = performance.now();
 		return m;
@@ -504,13 +505,16 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 							edited_timestamp: ref.edited_timestamp,
 							pinned: ref.pinned,
 						});
+						this.updateWaiting(has);
 					} else {
 						const m = this.newMessage(ref);
 						this.set(m.id, m);
+						this.updateWaiting(m);
 					}
 				}
 
 				this.set(m.id, message);
+				this.updateWaiting(message);
 
 				filtered.push(message);
 			}
