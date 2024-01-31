@@ -522,9 +522,10 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 		// sort by ID, or maybe by timestamp?
 		filtered.sort((a, b) => {
-			if (a.id < b.id) return -1;
-			if (a.id > b.id) return 1;
-			return 0;
+			const _a = new Date(a.$.timestamp).getTime();
+			const _b = new Date(b.$.timestamp).getTime();
+
+			return _a - _b;
 		});
 
 		this.state.shallowSet(filtered);
