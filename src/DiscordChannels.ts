@@ -33,7 +33,7 @@ type TextChannelType =
 	| ChannelType.GuildMedia;
 
 import { DiscordGuild } from "./DiscordGuild";
-import { Signal } from "@preact/signals";
+import { Signal, signal } from "@preact/signals";
 
 export function generateNonce() {
 	return String(Date.now() * 512 * 1024);
@@ -421,11 +421,16 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 	waitForMessage(id: string) {
 		const has = this.get(id);
-		if (has) return has;
+		if (has) return signal(has);
 
-		const signal = new Signal<DiscordMessage<T> | null>();
-		this.waiting.set(id, signal);
-		return signal;
+		const hasBeenWaiting = this.waiting.get(id);
+		if (hasBeenWaiting) {
+			return hasBeenWaiting;
+		}
+
+		const _signal = signal<DiscordMessage<T> | null>(null);
+		this.waiting.set(id, _signal);
+		return _signal;
 	}
 
 	update(message: Partial<APIMessage>) {
