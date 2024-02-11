@@ -121,6 +121,24 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	[x: symbol]: any[];
 }
 
+export const SuperProperties = {
+	os: "Android",
+	browser: "Chrome",
+	device: "",
+	system_locale: "en-US",
+	browser_user_agent:
+		"Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
+	browser_version: "116.0.0.0",
+	os_version: "8.0.0",
+	referrer: "",
+	referring_domain: "",
+	referrer_current: "",
+	referring_domain_current: "",
+	release_channel: "stable",
+	client_build_number: 259501,
+	client_event_source: null,
+};
+
 export default class Gateway extends EventEmitter<GatewayEventsMap> {
 	private token?: string;
 	private ws?: WebSocket;
@@ -200,23 +218,7 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 			d: {
 				token: this.token,
 				capabilities: 16381,
-				properties: {
-					os: "Android",
-					browser: "Chrome",
-					device: "",
-					system_locale: "en-US",
-					browser_user_agent:
-						"Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
-					browser_version: "116.0.0.0",
-					os_version: "8.0.0",
-					referrer: "",
-					referring_domain: "",
-					referrer_current: "",
-					referring_domain_current: "",
-					release_channel: "stable",
-					client_build_number: 259501,
-					client_event_source: null,
-				},
+				properties: SuperProperties,
 				presence: {
 					status: "unknown",
 					since: 0,

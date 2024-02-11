@@ -6,6 +6,11 @@ import EventEmitter from "./lib/EventEmitter";
 
 interface Props {
 	config?: Config;
+	/**
+	 * Add headers necessary for discord's fingerprinting
+	 * @default true
+	 */
+	fingerprint?: boolean;
 }
 
 interface PropsSignIn extends Props {
@@ -82,15 +87,34 @@ export default class DiscordSetup {
 
 	constructor(public cache?: Cache) {}
 
+	/**
+	 * shit probably useful:
+	 * - `"X-Discord-Locale": "en-US"`
+	 * - `"X-Discord-Timezone": "Asia/Manila"`
+	 */
+	headers: Record<string, string> = {};
+
+	fingerprint = "";
+
 	async login(props: PropsSignIn): Promise<DiscordClient | MFA>;
 	async login(props: PropsToken): Promise<DiscordClient>;
 	async login(props: PropsSignIn | PropsToken) {
 		this.result = null;
+
+		const shouldFingerPrint = props.fingerprint ?? true;
+
 		const logger = new Logger("setup");
 
 		const config = props.config || {};
 
 		const req = new DiscordRequest(config);
+
+		const fingerprintHeaders = shouldFingerPrint
+			? {
+					"X-Super-Properties": req.superProperties,
+					"X-Debug-Options": "bugReporterEnabled",
+			  }
+			: null;
 
 		if ("token" in props) {
 			logger.dbg("token provided")();
@@ -113,6 +137,23 @@ export default class DiscordSetup {
 	}
   */
 
+		// weird fingerprint shit i learned
+		// https://git.srht.taylor.fish/~taylor/harmony/tree/master/harmony/discord.py
+		//
+		if (shouldFingerPrint && !this.fingerprint) {
+			const experimentsReq = req.get("experiments", {
+				headers: {
+					"X-Context-Properties": "eyJsb2NhdGlvbiI6IkxvZ2luIn0=", // base64 of '{"location":"Login"}' ,
+					...fingerprintHeaders,
+					...this.headers,
+				},
+			});
+
+			const result = await experimentsReq.response();
+
+			if ("fingerprint" in result) this.fingerprint = result.fingerprint;
+		}
+
 		const loginReq = req.post<TokenResponse | MFAResponse>("auth/login", {
 			data: {
 				login: email,
@@ -120,6 +161,11 @@ export default class DiscordSetup {
 				undelete: false,
 				login_source: null,
 				gift_code_sku_id: null,
+			},
+			headers: {
+				"X-Fingerprint": this.fingerprint,
+				...fingerprintHeaders,
+				...this.headers,
 			},
 		});
 

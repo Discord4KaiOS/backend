@@ -22,4 +22,7 @@ export interface Config {
 	 * the bitwise number for this is unknown
 	 */
 	experimental_favorite_channels?: boolean;
+
+	// headers to inject into every request
+	custom_headers?: Record<string, string>;
 }

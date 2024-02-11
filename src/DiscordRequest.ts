@@ -1,3 +1,4 @@
+import { SuperProperties } from "./DiscordGateway";
 import { Config } from "./config";
 import Deferred from "./lib/Deffered";
 import EventEmitter from "./lib/EventEmitter";
@@ -61,7 +62,7 @@ export class ResponsePost<T> extends EventEmitter {
 }
 
 interface RequestProps {
-	headers?: Record<string, string>;
+	headers?: Record<string, string | null | undefined>;
 	data?: object | string | FormData;
 	responseType?: XMLHttpRequestResponseType;
 }
@@ -82,6 +83,7 @@ function fullURL(path = "/") {
 
 export default class DiscordRequest {
 	token: string | undefined;
+	superProperties: string;
 
 	constructor(public config: Config) {
 		this.token = config.token;
@@ -93,6 +95,8 @@ export default class DiscordRequest {
 		this.put = this.request.bind(this, "put");
 		// @ts-ignore: should work
 		this.delete = this.request.bind(this, "delete");
+
+		this.superProperties = btoa(JSON.stringify(SuperProperties));
 	}
 
 	post<T = any>(url: string, props: RequestProps) {
