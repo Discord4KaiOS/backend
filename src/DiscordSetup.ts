@@ -88,6 +88,13 @@ interface CaptchaEvent {
 	readonly service: string;
 
 	/**
+	 * hidden
+	 * @internal
+	 * @deprecated
+	 */
+	result: string | null;
+
+	/**
 	 *
 	 * @param captcha_key `X-Captcha-Key` header value, I need to figure out how it works
 	 * @returns
