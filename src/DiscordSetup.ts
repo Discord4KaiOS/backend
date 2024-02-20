@@ -72,20 +72,67 @@ interface TokenResponse {
 
 interface MFAResponse {
 	user_id: string;
-	mfa: true;
-	sms: false;
+	mfa: boolean;
+	sms: boolean;
 	ticket: string;
-	backup: true;
-	totp: true;
+	backup: boolean;
+	totp: boolean;
 	webauthn: null;
 }
 
 interface Cache {}
 
-export default class DiscordSetup {
+interface CaptchaEvent {
+	readonly type: "captcha";
+	readonly sitekey: string;
+	readonly service: string;
+
+	/**
+	 *
+	 * @param captcha_key `X-Captcha-Key` header value, I need to figure out how it works
+	 * @returns
+	 */
+	register: (captcha_key: string | Promise<string>) => void;
+}
+
+export default class DiscordSetup extends EventEmitter<{
+	captcha: [CaptchaEvent];
+}> {
 	result: DiscordClient | MFA | null = null;
 
-	constructor(public cache?: Cache) {}
+	constructor(public cache?: Cache) {
+		super();
+	}
+
+	/**
+
+{
+	message: "Invalid Form Body",
+	code: 50035,
+	errors: {
+		login: { _errors: [{ code: "INVALID_LOGIN", message: "Login or password is invalid." }] },
+		password: { _errors: [{ code: "INVALID_LOGIN", message: "Login or password is invalid." }] },
+	},
+}
+
+
+create a login error with this name
+
+{
+	message: "Invalid Form Body",
+	code: 50035,
+	errors: {
+		login: {
+			_errors: [
+				{
+					code: "ACCOUNT_LOGIN_VERIFICATION_EMAIL",
+					message: "New login location detected, please check your e-mail.",
+				},
+			],
+		},
+	},
+}
+	*/
 
 	/**
 	 * shit probably useful:

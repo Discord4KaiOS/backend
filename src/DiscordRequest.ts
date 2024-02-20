@@ -1,4 +1,5 @@
 import { SuperProperties } from "./DiscordGateway";
+import DiscordSetup from "./DiscordSetup";
 import { Config } from "./config";
 import Deferred from "./lib/Deffered";
 import EventEmitter from "./lib/EventEmitter";
@@ -32,7 +33,7 @@ export class ResponseError extends Error {
 export class Response<T = any> {
 	response: () => Promise<T>;
 
-	constructor(public xhr: XMLHttpRequest) {
+	constructor(public xhr: XMLHttpRequest, context: RequestContext) {
 		const deffered = new Deferred<T>();
 
 		this.response = () => deffered.promise;
@@ -40,7 +41,11 @@ export class Response<T = any> {
 		// reject if status is not 2xx
 		xhr.onloadend = () => {
 			if (xhr.status < 200 || xhr.status >= 300) {
-				deffered.reject(new ResponseError(xhr.status, xhr));
+				const response = xhr.response;
+				if ("captcha_sitekey" in response) {
+				} else {
+					deffered.reject(new ResponseError(xhr.status, xhr));
+				}
 			} else {
 				deffered.resolve(xhr.response);
 			}
@@ -67,6 +72,13 @@ interface RequestProps {
 	responseType?: XMLHttpRequestResponseType;
 }
 
+interface RequestContext {
+	self: DiscordRequest;
+	method: string;
+	url: string;
+	props: RequestProps;
+}
+
 function fullURL(path = "/") {
 	const base = "https://discord.com";
 
@@ -84,6 +96,7 @@ function fullURL(path = "/") {
 export default class DiscordRequest {
 	token: string | undefined;
 	superProperties: string;
+	setup: DiscordSetup | undefined;
 
 	constructor(public config: Config) {
 		this.token = config.token;
@@ -144,6 +157,11 @@ export default class DiscordRequest {
 		}
 
 		xhr.send(body);
-		return new Response<T>(xhr);
+		return new Response<T>(xhr, {
+			self: this,
+			method,
+			url,
+			props,
+		});
 	}
 }
