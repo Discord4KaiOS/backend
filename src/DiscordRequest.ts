@@ -51,22 +51,26 @@ export class Response<T = any> {
 				if ("captcha_sitekey" in response) {
 					const c_evt = new CaptchaEvent(response.captcha_sitekey, response.captcha_service);
 					context.self.setup?.emit("captcha", c_evt);
-					const result = await c_evt.result;
-					if (result === null) {
-						deffered.reject(new CaptchaError(xhr.status, xhr));
+					try {
+						const result = await c_evt.result;
+						if (result === null) {
+							throw new CaptchaError(xhr.status, xhr);
+						}
+
+						const retryWithCaptcha = context.self.request(context.method, context.url, {
+							...context.props,
+							headers: {
+								...context.props.headers,
+								"X-Captcha-Key": result,
+							},
+						});
+
+						deffered.resolve(await retryWithCaptcha.response());
+						return;
+					} catch (e) {
+						deffered.reject(e);
 						return;
 					}
-
-					const retryWithCaptcha = context.self.request(context.method, context.url, {
-						...context.props,
-						headers: {
-							...context.props.headers,
-							"X-Captcha-Key": result,
-						},
-					});
-
-					retryWithCaptcha.response().then(deffered.resolve).catch(deffered.reject);
-					return;
 				}
 
 				deffered.reject(new ResponseError(xhr.status, xhr));

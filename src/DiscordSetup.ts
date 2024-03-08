@@ -159,6 +159,7 @@ create a login error with this name
 		const config = props.config || {};
 
 		const req = new DiscordRequest(config);
+		req.setup = this;
 
 		const fingerprintHeaders = shouldFingerPrint
 			? {
