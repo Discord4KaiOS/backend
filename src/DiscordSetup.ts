@@ -99,7 +99,7 @@ export class CaptchaEvent {
 	}
 }
 
-export default class DiscordSetup extends EventEmitter<{
+export class DiscordSetup extends EventEmitter<{
 	captcha: [CaptchaEvent];
 }> {
 	result: DiscordClient | MFA | null = null;

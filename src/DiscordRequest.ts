@@ -1,5 +1,5 @@
 import { SuperProperties } from "./DiscordGateway";
-import DiscordSetup, { CaptchaEvent } from "./DiscordSetup";
+import { DiscordSetup, CaptchaEvent } from "./DiscordSetup";
 import { Config } from "./config";
 import Deferred from "./lib/Deffered";
 import EventEmitter from "./lib/EventEmitter";
