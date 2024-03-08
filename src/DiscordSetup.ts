@@ -82,24 +82,21 @@ interface MFAResponse {
 
 interface Cache {}
 
-interface CaptchaEvent {
-	readonly type: "captcha";
-	readonly sitekey: string;
-	readonly service: string;
+export class CaptchaEvent {
+	readonly type = "captcha";
 
 	/**
 	 * hidden
 	 * @internal
 	 * @deprecated
 	 */
-	result: string | null;
+	result: string | Promise<string> | null = null;
 
-	/**
-	 *
-	 * @param captcha_key `X-Captcha-Key` header value, I need to figure out how it works
-	 * @returns
-	 */
-	register: (captcha_key: string | Promise<string>) => void;
+	constructor(readonly sitekey: string, readonly service: string) {}
+
+	register(captcha_key: string | Promise<string>) {
+		this.result = captcha_key;
+	}
 }
 
 export default class DiscordSetup extends EventEmitter<{
@@ -172,6 +169,11 @@ create a login error with this name
 
 		if ("token" in props) {
 			logger.dbg("token provided")();
+
+			logger.dbg("validating token...");
+
+			// TODO
+
 			return (this.result = new DiscordClient(req, props.token, config));
 		}
 
@@ -247,4 +249,14 @@ create a login error with this name
 
 		return (this.result = new DiscordClient(req, loginResp.token, config));
 	}
+}
+
+/**
+ * quick setup
+ *
+ *  */
+export async function setup(props: PropsSignIn): Promise<DiscordClient | MFA>;
+export async function setup(props: PropsToken): Promise<DiscordClient>;
+export async function setup(props: PropsSignIn | PropsToken) {
+	return new DiscordSetup().login(props as any);
 }

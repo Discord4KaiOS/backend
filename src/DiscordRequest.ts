@@ -1,5 +1,5 @@
 import { SuperProperties } from "./DiscordGateway";
-import DiscordSetup from "./DiscordSetup";
+import DiscordSetup, { CaptchaEvent } from "./DiscordSetup";
 import { Config } from "./config";
 import Deferred from "./lib/Deffered";
 import EventEmitter from "./lib/EventEmitter";
@@ -30,6 +30,12 @@ export class ResponseError extends Error {
 	}
 }
 
+export class CaptchaError extends ResponseError {
+	get [Symbol.toStringTag || Symbol()]() {
+		return "CaptchaError";
+	}
+}
+
 export class Response<T = any> {
 	response: () => Promise<T>;
 
@@ -39,13 +45,31 @@ export class Response<T = any> {
 		this.response = () => deffered.promise;
 
 		// reject if status is not 2xx
-		xhr.onloadend = () => {
+		xhr.onloadend = async () => {
 			if (xhr.status < 200 || xhr.status >= 300) {
 				const response = xhr.response;
 				if ("captcha_sitekey" in response) {
-				} else {
-					deffered.reject(new ResponseError(xhr.status, xhr));
+					const c_evt = new CaptchaEvent(response.captcha_sitekey, response.captcha_service);
+					context.self.setup?.emit("captcha", c_evt);
+					const result = await c_evt.result;
+					if (result === null) {
+						deffered.reject(new CaptchaError(xhr.status, xhr));
+						return;
+					}
+
+					const retryWithCaptcha = context.self.request(context.method, context.url, {
+						...context.props,
+						headers: {
+							...context.props.headers,
+							"X-Captcha-Key": result,
+						},
+					});
+
+					retryWithCaptcha.response().then(deffered.resolve).catch(deffered.reject);
+					return;
 				}
+
+				deffered.reject(new ResponseError(xhr.status, xhr));
 			} else {
 				deffered.resolve(xhr.response);
 			}
