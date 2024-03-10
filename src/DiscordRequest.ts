@@ -157,6 +157,8 @@ export default class DiscordRequest {
 		const headers = {
 			"Content-Type": "application/json",
 			authorization: this.token || null,
+			// seems like mozAnon doesn't work on KaiOS v3
+			Origin: "https://discord.com",
 		};
 
 		if (props.headers) {
