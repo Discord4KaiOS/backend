@@ -392,3 +392,8 @@ export function convertSnowflakeToDate(snowflake: Snowflake, epoch = DISCORD_EPO
 }
 
 convertSnowflakeToDate.DISCORD_EPOCH = DISCORD_EPOCH;
+
+export function mergeLikeSet<T>(...args: (T | T[])[]): T[] {
+	const set = new Set<T>(([] as T[]).concat(...args));
+	return [...set];
+}

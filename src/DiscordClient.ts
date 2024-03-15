@@ -39,6 +39,7 @@ import {
 	convertSnowflakeToDate,
 	ChannelType,
 	GuildTextChannelType,
+	mergeLikeSet,
 } from "./lib/utils";
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
@@ -327,6 +328,8 @@ export class DiscordClientReady {
 	}
 
 	handleDMChannels(...channels: Array<PrivateChannel>) {
+		const currentUser = this.users.get(this.ready.user.id)!;
+
 		channels.forEach((r) => {
 			const has = this.dms.get(r.id);
 
@@ -339,7 +342,7 @@ export class DiscordClientReady {
 			if (has) {
 				has.setState(obj);
 
-				has.recipients.shallowSet(_recipients);
+				has.recipients.shallowSet(mergeLikeSet(currentUser, _recipients));
 			} else {
 				if (r.type === ChannelType.DM) {
 					const dm = new DiscordDMChannel(obj, r.id, _recipients, this);

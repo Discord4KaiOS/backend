@@ -18,7 +18,7 @@ import {
 } from "./DiscordClient";
 import DiscordRequest from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { Jar, WritableStore, toQuery, toVoid, ChannelType } from "./lib/utils";
+import { Jar, WritableStore, toQuery, toVoid, ChannelType, mergeLikeSet } from "./lib/utils";
 type TextChannelType =
 	| ChannelType.DM
 	| ChannelType.GroupDM
@@ -837,7 +837,10 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 		public $client: DiscordClientReady
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
-		this.recipients.set(recipients);
+
+		const currentUser = $client.users.get($client.config.user_id!)!;
+		this.recipients.set(mergeLikeSet(currentUser, recipients));
+
 		this.$users = $client.users;
 		this.Request = $client.Request;
 		this.Gateway = $client.Gateway;
@@ -882,7 +885,10 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 		public $client: DiscordClientReady
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
-		this.recipients.set(recipients);
+
+		const currentUser = $client.users.get($client.config.user_id!)!;
+		this.recipients.set(mergeLikeSet(currentUser, recipients));
+
 		this.$users = $client.users;
 		this.Request = $client.Request;
 		this.Gateway = $client.Gateway;
