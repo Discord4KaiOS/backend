@@ -435,16 +435,23 @@ export class DiscordClientReady {
 		});
 
 		const addGuild = (_guild: ClientGuild | GatewayGuildCreateDispatchData) => {
-			ready.guilds.push(_guild as ClientGuild);
+			let guild: DiscordGuild;
+			const has = this.guilds.get(_guild.id);
+			if (has) {
+				guild = has;
+			} else {
+				// what's the use of this???
+				ready.guilds.push(_guild as ClientGuild);
 
-			const guild = new DiscordGuild(
-				// nothing should go wrong, right??
-				_guild as ClientGuild,
-				this.Request,
-				this.Gateway,
-				this.users,
-				this.guildSettings
-			);
+				guild = new DiscordGuild(
+					// nothing should go wrong, right??
+					_guild as ClientGuild,
+					this.Request,
+					this.Gateway,
+					this.users,
+					this.guildSettings
+				);
+			}
 
 			// nothing should go wrong, right??
 			guild.handleChannels(...(_guild.channels as ClientChannel[]));
