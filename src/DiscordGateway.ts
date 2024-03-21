@@ -1,4 +1,5 @@
 import type {
+	APIGuildMember,
 	GatewayGuildCreateDispatchData,
 	GatewayGuildDeleteDispatchData,
 	GatewayGuildMemberUpdateDispatchData,
@@ -16,6 +17,7 @@ import type {
 	GatewayMessageUpdateDispatchData,
 	GatewayPresenceUpdateDispatchData,
 	GatewayTypingStartDispatchData,
+	GatewayVoiceState,
 } from "discord-api-types/v10";
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
@@ -24,6 +26,7 @@ import Pako from "pako";
 import type { Inflate } from "pako";
 import {
 	APIChannel,
+	ClientAPIGuildMember,
 	ClientAPIUser,
 	ClientReadState,
 	ClientRelationship,
@@ -88,6 +91,31 @@ type GatewayEventsUnion = Record<
 		[{ channel_id: Snowflake; user: ClientAPIUser }]
 	>;
 
+/**
+ * undocumented
+ */
+interface ClientPassiveUpdateV1 {
+	/**
+	 * both voice_states and members have same length,
+	 * so it's assumed that we're supposed to merge them
+	 *
+	 * differences to GatewayVoiceState
+	 * - member is not defined
+	 * - guild_id is assumed using the passive_update
+	 */
+	voice_states: Omit<GatewayVoiceState, "member" | "guild_id">[];
+	/**
+	 * both voice_states and members have same length,
+	 * so it's assumed that we're supposed to merge them
+	 */
+	members: ClientAPIGuildMember[];
+	guild_id: string;
+	/**
+	 * seems like the new way discord handles read state, i guess it's to make startup time faster?
+	 */
+	channels: Partial<ClientReadState>[];
+}
+
 interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:ready": [ReadyEvent];
 	"t:ready_supplemental": [ReadySupplementalEvent];
@@ -115,6 +143,8 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	"t:message_reaction_remove": [GatewayMessageReactionRemoveDispatchData];
 	"t:message_reaction_remove_all": [GatewayMessageReactionRemoveAllDispatchData];
 	"t:message_reaction_remove_emoji": [GatewayMessageReactionRemoveEmojiDispatchData];
+
+	"t:passive_update_v1": [ClientPassiveUpdateV1];
 
 	close: [];
 	[x: string]: any[];

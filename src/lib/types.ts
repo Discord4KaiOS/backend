@@ -11,6 +11,7 @@ import type {
 	APIVoiceChannelBase,
 	GatewayPresenceUpdate,
 	Snowflake,
+	APIGuildMember,
 } from "discord-api-types/v10";
 export type * from "discord-api-types/v10";
 import type { ChannelType } from "./utils";
@@ -23,7 +24,7 @@ export interface ClientAPIUser extends APIUser {
 	} | null;
 }
 
-interface ClientGuildMember
+export interface ClientGuildMember
 	extends Pick<
 		APIInteractionGuildMember,
 		| "roles"
@@ -38,6 +39,10 @@ interface ClientGuildMember
 		| "avatar"
 	> {
 	user_id: string;
+}
+
+export interface ClientAPIGuildMember extends APIGuildMember {
+	unusual_dm_activity_until?: string;
 }
 
 export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
@@ -187,7 +192,7 @@ export interface ClientUser extends ClientAPIUser {
 	purchased_flags: number;
 	premium_type: number;
 	premium: boolean;
-	phone: null;
+	phone: null | string;
 	nsfw_allowed: boolean;
 	mobile: boolean;
 	mfa_enabled: boolean;

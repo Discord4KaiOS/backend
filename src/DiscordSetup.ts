@@ -99,6 +99,11 @@ export class CaptchaEvent {
 	}
 }
 
+export class InvalidTokenError extends Error {
+	name = "InvalidTokenError";
+	message = "token failed to authenticate";
+}
+
 export class DiscordSetup extends EventEmitter<{
 	captcha: [CaptchaEvent];
 }> {
@@ -173,7 +178,16 @@ create a login error with this name
 
 			logger.dbg("validating token...");
 
-			// TODO
+			try {
+				req.get("users/@me", {
+					headers: {
+						authorization: props.token,
+					},
+				});
+			} catch {
+				this.result = null;
+				throw new InvalidTokenError();
+			}
 
 			return (this.result = new DiscordClient(req, props.token, config));
 		}

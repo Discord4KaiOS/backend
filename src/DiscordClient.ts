@@ -25,6 +25,7 @@ import type {
 	GatewayActivity,
 	PresenceUpdateReceiveStatus,
 	GatewayPresenceClientStatus,
+	APIUser,
 } from "discord-api-types/v10";
 import {
 	DiscordDMChannel,
@@ -178,6 +179,10 @@ class GuildsJar extends Jar<DiscordGuild> {
 		super();
 
 		this.on("update", () => {
+			this.refresh();
+		});
+
+		$client.userSettings.subscribe(() => {
 			this.refresh();
 		});
 
@@ -436,9 +441,26 @@ export class DiscordClientReady {
 
 		const addGuild = (_guild: ClientGuild | GatewayGuildCreateDispatchData) => {
 			let guild: DiscordGuild;
+
+			// dirty bit
+			if ("properties" in _guild) {
+				const properties = _guild.properties;
+				delete _guild.properties;
+				Object.assign(_guild, properties);
+			}
+
 			const has = this.guilds.get(_guild.id);
 			if (has) {
 				guild = has;
+				const $ = _guild as ClientGuild;
+				guild.setState({
+					name: $.name,
+					icon: $.icon,
+					description: $.description,
+					owner_id: $.owner_id,
+					roles: $.roles,
+					rules_channel_id: $.rules_channel_id,
+				});
 			} else {
 				// what's the use of this???
 				ready.guilds.push(_guild as ClientGuild);
@@ -485,6 +507,18 @@ export class DiscordClientReady {
 				guild.setStateDeep({ name, icon, owner_id, description, roles, rules_channel_id });
 			}
 		);
+		Gateway.on("t:guild_delete", (evt) => {
+			const guild = this.guilds.get(evt.id);
+			if (!guild) return;
+
+			guild.members.forEach((a) => {
+				const user = a.user;
+				user.profiles.delete(guild.id);
+			});
+
+			this.guilds.delete(evt.id);
+		});
+
 		Gateway.on("t:guild_member_update", (evt) => {
 			const user = this.users.get(evt.user.id);
 
@@ -758,15 +792,40 @@ export class DiscordClientReady {
 				});
 			});
 		});
+
+		Gateway.on("t:passive_update_v1", (evt) => {
+			const guild_id = evt.guild_id;
+			const guild = this.guilds.get(guild_id);
+			if (!guild) return;
+
+			evt.members.forEach((member) => {
+				if (!member.user) return;
+				const user = this.addUser(member.user);
+				if (!user) return;
+				const profile = user.profiles.insert(member, guild);
+				guild.members.add(profile);
+			});
+
+			evt.channels.forEach((state) => {
+				state.id && this.readStates.get(state.id).setState(state);
+			});
+		});
+
+		Gateway.on("t:user_settings_proto_update", (evt) => {
+			if (evt.settings?.proto) {
+				const user_settings = PreloadedUserSettings.fromBase64(evt.settings.proto);
+				this.userSettings.setStateDeep(user_settings);
+			}
+		});
 	}
 
-	addUser(user: ClientAPIUser) {
+	addUser(user: ClientAPIUser | APIUser) {
 		const has = this.users.get(user.id);
 		// user object from API for current user lacks some properties
 
 		if (has) {
 			// use deep comparison when decoration is present
-			if (user.avatar_decoration_data) {
+			if ("avatar_decoration_data" in user && user.avatar_decoration_data) {
 				has.setStateDeep(user);
 			} else has.setState(user);
 		} else {

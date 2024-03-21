@@ -6,7 +6,7 @@ import type {
 } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
 import { DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
-import { WritableStore, toVoid, Jar, spread, ChannelType } from "./lib/utils";
+import { WritableStore, toVoid, Jar, spread, ChannelType, sleep } from "./lib/utils";
 import { ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
@@ -155,6 +155,8 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 	}
 }
 
+let lastLazyGuild = "";
+
 export class DiscordGuild extends WritableStore<
 	Pick<ClientGuild, "name" | "icon" | "description" | "owner_id" | "roles" | "rules_channel_id">
 > {
@@ -165,6 +167,14 @@ export class DiscordGuild extends WritableStore<
 
 	get [Symbol.toStringTag || Symbol()]() {
 		return "DiscordGuild";
+	}
+
+	static get lastLazyGuild() {
+		return lastLazyGuild;
+	}
+
+	static set lastLazyGuild(value: string) {
+		lastLazyGuild = value;
 	}
 
 	constructor(
@@ -322,8 +332,39 @@ export class DiscordGuild extends WritableStore<
 
 	lazySubscribed = false;
 
-	lazySubscribe() {
-		this.lazySubscribed = true;
+	async lazySubscribe() {
+		if (lastLazyGuild === this.id) return;
+		lastLazyGuild = this.id;
+
+		// op: 14 seems to be non existent now
+		this.Gateway.send({
+			op: 37,
+			d: {
+				subscriptions: {
+					[this.id]: {
+						typing: true,
+						threads: true,
+						activities: true,
+					},
+
+					// {
+					// 	activities: true,
+					// 	threads: true,
+					// 	typing: true,
+
+					// 	/*
+					// 	// there's also
+					// 	channels: {
+					// 		[channel.id]: [ [0,99] ]
+					// 	}
+					// 	*/
+					// },
+				},
+			},
+		});
+
+		// seems like there's a slight delay?
+		await sleep(500 + Math.floor(Math.random() * 500));
 
 		// absolutely have no idea what this is for
 		this.Gateway.send({
@@ -332,35 +373,13 @@ export class DiscordGuild extends WritableStore<
 				guild_id: this.id,
 			},
 		});
-
-		// op: 14 seems to be non existent now
-		this.Gateway.send({
-			op: 37,
-			d: {
-				subscriptions: {
-					[this.id]: {
-						activities: true,
-						threads: false,
-						typing: true,
-
-						/*
-						// there's also
-						channels: {
-							[channel.id]: [ [0,99] ]
-						}
-						*/
-					},
-				},
-			},
-		});
 	}
 
 	/**
 	 * undocumented "Lazy Guilds" api, it will request for members and other state changes for the guild
 	 */
 	lazy(user_ids?: string[]) {
-		// do this is it hasn't been done yet
-		if (!this.lazySubscribed) this.lazySubscribe();
+		this.lazySubscribe();
 
 		// this seems to still be existent, should only work if user_ids is passed
 		if (user_ids)
