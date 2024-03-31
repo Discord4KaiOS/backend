@@ -81,16 +81,20 @@ export class Response<T = any> {
 	}
 }
 
-export class ResponsePost<T> extends EventEmitter {
+export class ResponsePost<T> extends EventEmitter<{
+	progress: [ProgressEvent];
+}> {
 	response: () => Promise<T>;
+	xhr: XMLHttpRequest;
 
 	constructor(resp: Response<T>) {
 		super();
 
-		const { response } = resp;
+		const { response, xhr } = resp;
 		this.response = response;
+		this.xhr = xhr;
 
-		if (resp.xhr.upload) resp.xhr.upload.onprogress = this.emit.bind(this, "progress");
+		if (xhr.upload) xhr.upload.onprogress = this.emit.bind(this, "progress");
 	}
 }
 
@@ -174,12 +178,10 @@ export default class DiscordRequest {
 			xhr.responseType = props.responseType;
 		}
 
-		let body: string | FormData | undefined;
+		let body: string | FormData | Blob | undefined;
 
 		if (props.data) {
-			if (typeof props.data === "string") {
-				body = props.data;
-			} else if (props.data instanceof FormData) {
+			if (typeof props.data === "string" || props.data instanceof Blob || props.data instanceof FormData) {
 				body = props.data;
 			} else {
 				body = JSON.stringify(props.data);

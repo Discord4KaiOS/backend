@@ -10,13 +10,8 @@ import type {
 	APIReaction,
 } from "discord-api-types/v10";
 
-import {
-	DiscordClientReady,
-	DiscordGuildSettingsJar,
-	DiscordUser,
-	UsersJar,
-} from "./DiscordClient";
-import DiscordRequest from "./DiscordRequest";
+import { DiscordClientReady, DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
+import DiscordRequest, { ResponsePost } from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { Jar, WritableStore, toQuery, toVoid, ChannelType, mergeLikeSet } from "./lib/utils";
 type TextChannelType =
@@ -34,6 +29,8 @@ type TextChannelType =
 
 import { DiscordGuild } from "./DiscordGuild";
 import { Signal, signal } from "@preact/signals";
+import EventEmitter from "./lib/EventEmitter";
+import Deferred from "./lib/Deffered";
 
 export function generateNonce() {
 	return String(Date.now() * 512 * 1024);
@@ -66,11 +63,7 @@ export class DiscordGuildChannelCategory extends DiscordChannelBase<DiscordChann
 	Request: DiscordRequest;
 	Gateway: Gateway;
 
-	constructor(
-		initialProps: DiscordChannelCategoryProps,
-		public id: Snowflake,
-		public guild: DiscordGuild
-	) {
+	constructor(initialProps: DiscordChannelCategoryProps, public id: Snowflake, public guild: DiscordGuild) {
 		super({ name: initialProps.name, position: initialProps.position });
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
@@ -225,9 +218,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	private reaction(method: "put" | "delete", emoji: APIEmoji | string, user = "@me") {
 		return this.$message.$channel.Request[method](
-			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
-				emoji
-			)}/${user}`,
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(emoji)}/${user}`,
 			{}
 		);
 	}
@@ -249,17 +240,15 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	deleteAllReactionEmoji(emoji: APIEmoji | string) {
 		return this.$message.$channel.Request.delete(
-			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
-				emoji
-			)}`,
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(emoji)}`,
 			{}
 		);
 	}
 }
 
-export class DiscordMessage<
-	T extends DiscordTextChannelProps = DiscordTextChannelProps
-> extends WritableStore<Pick<APIMessage, "content" | "pinned" | "edited_timestamp">> {
+export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends WritableStore<
+	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
+> {
 	get [Symbol.toStringTag || Symbol()]() {
 		return "DiscordMessage";
 	}
@@ -315,10 +304,7 @@ export class DiscordMessage<
 	}
 
 	pin(put = true) {
-		return this.$channel.Request[put ? "put" : "delete"](
-			`channels/${this.$channel.id}/pins/${this.id}`,
-			{}
-		);
+		return this.$channel.Request[put ? "put" : "delete"](`channels/${this.$channel.id}/pins/${this.id}`, {});
 	}
 
 	unpin(put = false) {
@@ -334,7 +320,13 @@ export class DiscordMessage<
 		});
 	}
 
-	reply(content: string, opts: Partial<CreateMessageParams> = {}, attachments?: File[] | Blob[]) {
+	reply(
+		content: string,
+		opts: Partial<CreateMessageParams> = {},
+		attachments?: (Partial<APIAttachment> & {
+			blob: File | Blob;
+		})[]
+	) {
 		return this.$channel.sendMessage(
 			content,
 			{
@@ -536,9 +528,7 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 		// if we currently have more messages than the limit, we have to fetch more
 		if (currentState.length >= limit) {
-			const messages = await this.$channel
-				.getMessages({ before: currentState[0].id, limit })
-				.response();
+			const messages = await this.$channel.getMessages({ before: currentState[0].id, limit }).response();
 			this.converge(messages);
 			return messages;
 		} else {
@@ -601,9 +591,7 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 	private _user?: DiscordUser;
 
 	getUser() {
-		return (
-			this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!)
-		);
+		return this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!);
 	}
 
 	users = new Set<DiscordUser>();
@@ -641,6 +629,127 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 	}
 }
 
+let id_pool = 12;
+
+class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
+	aborted = false;
+	responses: Promise<{
+		response: ResponsePost<any>;
+		id: number;
+		upload_url: string;
+		upload_filename: string;
+		filename: string;
+	}>[];
+	messageCreated: Promise<ResponsePost<any>>;
+	private messageCreatedDeferred: Deferred<ResponsePost<any>>;
+
+	constructor(
+		public content: string,
+		public opts: Partial<Omit<CreateMessageParams, "attachments">>,
+		public attachments: (Partial<APIAttachment> & {
+			blob: File | Blob;
+		})[],
+		public $channel: DiscordTextChannel
+	) {
+		super();
+
+		const responses = attachments.map(async (attachment) => {
+			const { blob, ...file } = attachment;
+			const filename = file.filename || ("name" in blob ? blob.name : "blob");
+
+			const askForUploadURL = $channel.Request.post(`channels/${$channel.id}/attachments`, {
+				data: {
+					files: [
+						{
+							filename,
+							file_size: blob.size,
+							id: String(++id_pool),
+							is_clip: false,
+						},
+					],
+				},
+			});
+
+			const { attachments } = await askForUploadURL.response();
+
+			if (!attachments.length) throw new Error("No attachments");
+
+			const a = attachments[0] as {
+				id: number;
+				upload_url: string;
+				upload_filename: string;
+			};
+
+			const pseudoPostReq = new ResponsePost(
+				$channel.Request.put(a.upload_url, {
+					data: blob,
+					headers: {
+						"Content-Type": "application/octet-stream",
+					},
+				})
+			);
+
+			this.on("abort", () => {
+				pseudoPostReq.xhr.abort();
+			});
+
+			return {
+				...a,
+				filename,
+				response: pseudoPostReq,
+			};
+		});
+		this.responses = responses;
+		this.handleResponses();
+
+		const deferred_createMessage = new Deferred<ResponsePost<any>>();
+		this.messageCreated = deferred_createMessage.promise;
+		this.messageCreatedDeferred = deferred_createMessage;
+	}
+
+	private async handleResponses() {
+		const successfulUploads: Array<{
+			upload_url: string;
+			upload_filename: string;
+			filename: string;
+		}> = [];
+
+		for (let i = 0; i < this.responses.length; i++) {
+			if (this.aborted) {
+				return;
+			}
+
+			try {
+				const response = await this.responses[i];
+				await response.response.response();
+				successfulUploads.push(response);
+			} catch {}
+		}
+
+		if (this.aborted) return;
+
+		const obj: CreateMessageParams = {
+			content: this.content.trim(),
+			nonce: generateNonce(),
+			...this.opts,
+			attachments: successfulUploads.map((a, i) => ({
+				id: String(i),
+				filename: a.filename,
+				uploaded_filename: a.upload_filename,
+			})),
+		};
+
+		const url = `channels/${this.$channel.id}/messages`;
+
+		this.messageCreatedDeferred.resolve(this.$channel.Request.post(url, { data: obj }));
+	}
+
+	abort() {
+		this.aborted = true;
+		this.emit("abort");
+	}
+}
+
 abstract class DiscordTextChannel<
 	T extends DiscordTextChannelProps = DiscordTextChannelProps
 > extends DiscordChannelBase<T> {
@@ -664,8 +773,10 @@ abstract class DiscordTextChannel<
 
 	sendMessage(
 		content: string = "",
-		opts: Partial<CreateMessageParams> = {},
-		attachments?: File[] | Blob[]
+		opts: Partial<Omit<CreateMessageParams, "attachments">> = {},
+		attachments?: (Partial<APIAttachment> & {
+			blob: File | Blob;
+		})[]
 	) {
 		if (!content && !attachments) throw new Error("Message or attachments must be provided");
 
@@ -676,26 +787,36 @@ abstract class DiscordTextChannel<
 		};
 		const url = `channels/${this.id}/messages`;
 
-		if (!attachments) {
+		const _attachments = attachments || [];
+		if (!_attachments.length) {
 			return this.Request.post(url, { data: obj });
 		}
 
+		return new AttachmentUploadProgress(content, opts, _attachments, this);
+
+		/*
 		const form = new FormData();
 
 		obj.attachments = [];
-		const len = attachments.length;
+
+		const len = _attachments.length;
 		for (let id = 0; id < len; id++) {
-			const file = attachments[id];
+			const { blob, ...file } = _attachments[id];
+
+			const filename = file.filename || ("name" in blob ? blob.name : "blob");
+
 			obj.attachments.push({
-				id: String(id),
-				filename: "name" in file ? file.name : "blob",
+				...file,
+				id: id as any,
+				filename: filename,
 			});
-			form.append(`files[${id}]`, file);
+			form.append(`files[${id}]`, blob, filename);
 		}
 
-		form.append("payload_json", JSON.stringify(obj));
+		form.append("payload_json", new Blob([JSON.stringify(obj)], { type: "application/json" }));
 
-		return this.Request.post(url, { data: form });
+		return this.Request.post(url, { data: form, headers: { "Content-Type": "multipart/form-data" } });
+		*/
 	}
 
 	getMessages(query: { limit?: number; before?: string; after?: string; around?: string }) {
@@ -782,9 +903,7 @@ export class DiscordGuildTextChannel<
 	}
 }
 
-export class DiscordDirectMessage<
-	T extends DiscordDMBaseProps = DiscordDMBaseProps
-> extends DiscordMessage<T> {
+export class DiscordDirectMessage<T extends DiscordDMBaseProps = DiscordDMBaseProps> extends DiscordMessage<T> {
 	/**
 	 * @param appended - whether this function is being called because a new message was created
 	 */
