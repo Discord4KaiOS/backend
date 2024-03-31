@@ -22,7 +22,9 @@ interface PropsToken extends Props {
 	token: string;
 }
 
-export class MFA extends EventEmitter {
+export class MFA extends EventEmitter<{
+	auth: [DiscordClient];
+}> {
 	get [Symbol.toStringTag || Symbol()]() {
 		return "MFA";
 	}
