@@ -87,6 +87,11 @@ interface CreateMessageParams {
 	// TODO
 	//message_components?:
 	attachments?: Partial<APIAttachment>[];
+	type?: number;
+
+	flags?: number;
+	channel_id?: string;
+	sticker_ids?: string[];
 }
 
 interface DiscordTextChannelProps extends DiscordChannelBaseProps {
@@ -763,6 +768,7 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 					filename: a.filename,
 					uploaded_filename: a.upload_filename,
 					...apiAttachemnt,
+					blob: undefined,
 				};
 			}),
 		};
