@@ -10,7 +10,12 @@ import type {
 	APIReaction,
 } from "discord-api-types/v10";
 
-import { DiscordClientReady, DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
+import {
+	DiscordClientReady,
+	DiscordGuildSettingsJar,
+	DiscordUser,
+	UsersJar,
+} from "./DiscordClient";
 import DiscordRequest, { ResponsePost } from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { Jar, WritableStore, toQuery, toVoid, ChannelType, mergeLikeSet } from "./lib/utils";
@@ -63,7 +68,11 @@ export class DiscordGuildChannelCategory extends DiscordChannelBase<DiscordChann
 	Request: DiscordRequest;
 	Gateway: Gateway;
 
-	constructor(initialProps: DiscordChannelCategoryProps, public id: Snowflake, public guild: DiscordGuild) {
+	constructor(
+		initialProps: DiscordChannelCategoryProps,
+		public id: Snowflake,
+		public guild: DiscordGuild
+	) {
 		super({ name: initialProps.name, position: initialProps.position });
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
@@ -218,7 +227,9 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	private reaction(method: "put" | "delete", emoji: APIEmoji | string, user = "@me") {
 		return this.$message.$channel.Request[method](
-			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(emoji)}/${user}`,
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
+				emoji
+			)}/${user}`,
 			{}
 		);
 	}
@@ -240,15 +251,17 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	deleteAllReactionEmoji(emoji: APIEmoji | string) {
 		return this.$message.$channel.Request.delete(
-			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(emoji)}`,
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
+				emoji
+			)}`,
 			{}
 		);
 	}
 }
 
-export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends WritableStore<
-	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
-> {
+export class DiscordMessage<
+	T extends DiscordTextChannelProps = DiscordTextChannelProps
+> extends WritableStore<Pick<APIMessage, "content" | "pinned" | "edited_timestamp">> {
 	get [Symbol.toStringTag || Symbol()]() {
 		return "DiscordMessage";
 	}
@@ -304,7 +317,10 @@ export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChann
 	}
 
 	pin(put = true) {
-		return this.$channel.Request[put ? "put" : "delete"](`channels/${this.$channel.id}/pins/${this.id}`, {});
+		return this.$channel.Request[put ? "put" : "delete"](
+			`channels/${this.$channel.id}/pins/${this.id}`,
+			{}
+		);
 	}
 
 	unpin(put = false) {
@@ -528,7 +544,9 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 		// if we currently have more messages than the limit, we have to fetch more
 		if (currentState.length >= limit) {
-			const messages = await this.$channel.getMessages({ before: currentState[0].id, limit }).response();
+			const messages = await this.$channel
+				.getMessages({ before: currentState[0].id, limit })
+				.response();
 			this.converge(messages);
 			return messages;
 		} else {
@@ -591,7 +609,9 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 	private _user?: DiscordUser;
 
 	getUser() {
-		return this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!);
+		return (
+			this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!)
+		);
 	}
 
 	users = new Set<DiscordUser>();
@@ -639,6 +659,7 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 		upload_url: string;
 		upload_filename: string;
 		filename: string;
+		__index: number;
 	}>[];
 	messageCreated: Promise<ResponsePost<any>>;
 	private messageCreatedDeferred: Deferred<ResponsePost<any>>;
@@ -649,11 +670,11 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 		public attachments: (Partial<APIAttachment> & {
 			blob: File | Blob;
 		})[],
-		public $channel: DiscordTextChannel
+		public $channel: DiscordTextChannel<any>
 	) {
 		super();
 
-		const responses = attachments.map(async (attachment) => {
+		const responses = attachments.map(async (attachment, i) => {
 			const { blob, ...file } = attachment;
 			const filename = file.filename || ("name" in blob ? blob.name : "blob");
 
@@ -697,6 +718,7 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 				...a,
 				filename,
 				response: pseudoPostReq,
+				__index: i,
 			};
 		});
 		this.responses = responses;
@@ -712,6 +734,7 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 			upload_url: string;
 			upload_filename: string;
 			filename: string;
+			__index: number;
 		}> = [];
 
 		for (let i = 0; i < this.responses.length; i++) {
@@ -732,11 +755,16 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 			content: this.content.trim(),
 			nonce: generateNonce(),
 			...this.opts,
-			attachments: successfulUploads.map((a, i) => ({
-				id: String(i),
-				filename: a.filename,
-				uploaded_filename: a.upload_filename,
-			})),
+			attachments: successfulUploads.map((a, i) => {
+				const apiAttachemnt = this.attachments[a.__index] || null;
+
+				return {
+					id: String(i),
+					filename: a.filename,
+					uploaded_filename: a.upload_filename,
+					...apiAttachemnt,
+				};
+			}),
 		};
 
 		const url = `channels/${this.$channel.id}/messages`;
@@ -777,7 +805,7 @@ abstract class DiscordTextChannel<
 		attachments?: (Partial<APIAttachment> & {
 			blob: File | Blob;
 		})[]
-	) {
+	): ResponsePost<any> | AttachmentUploadProgress {
 		if (!content && !attachments) throw new Error("Message or attachments must be provided");
 
 		const obj: CreateMessageParams = {
@@ -903,7 +931,9 @@ export class DiscordGuildTextChannel<
 	}
 }
 
-export class DiscordDirectMessage<T extends DiscordDMBaseProps = DiscordDMBaseProps> extends DiscordMessage<T> {
+export class DiscordDirectMessage<
+	T extends DiscordDMBaseProps = DiscordDMBaseProps
+> extends DiscordMessage<T> {
 	/**
 	 * @param appended - whether this function is being called because a new message was created
 	 */
