@@ -10,12 +10,7 @@ import type {
 	APIReaction,
 } from "discord-api-types/v10";
 
-import {
-	DiscordClientReady,
-	DiscordGuildSettingsJar,
-	DiscordUser,
-	UsersJar,
-} from "./DiscordClient";
+import { DiscordClientReady, DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
 import DiscordRequest, { ResponsePost } from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
 import { Jar, WritableStore, toQuery, toVoid, ChannelType, mergeLikeSet } from "./lib/utils";
@@ -68,11 +63,7 @@ export class DiscordGuildChannelCategory extends DiscordChannelBase<DiscordChann
 	Request: DiscordRequest;
 	Gateway: Gateway;
 
-	constructor(
-		initialProps: DiscordChannelCategoryProps,
-		public id: Snowflake,
-		public guild: DiscordGuild
-	) {
+	constructor(initialProps: DiscordChannelCategoryProps, public id: Snowflake, public guild: DiscordGuild) {
 		super({ name: initialProps.name, position: initialProps.position });
 		this.Request = guild.Request;
 		this.Gateway = guild.Gateway;
@@ -186,7 +177,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 		const r = new MessageReaction(reaction, this.$message);
 
-		this.set(emojiURI(reaction.emoji), r);
+		this.set(id, r);
 
 		this.refresh();
 		return r;
@@ -232,9 +223,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	private reaction(method: "put" | "delete", emoji: APIEmoji | string, user = "@me") {
 		return this.$message.$channel.Request[method](
-			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
-				emoji
-			)}/${user}`,
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(emoji)}/${user}`,
 			{}
 		);
 	}
@@ -256,17 +245,15 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	deleteAllReactionEmoji(emoji: APIEmoji | string) {
 		return this.$message.$channel.Request.delete(
-			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(
-				emoji
-			)}`,
+			`channels/${this.$message.$channel.id}/messages/${this.$message.id}/reactions/${emojiURI(emoji)}`,
 			{}
 		);
 	}
 }
 
-export class DiscordMessage<
-	T extends DiscordTextChannelProps = DiscordTextChannelProps
-> extends WritableStore<Pick<APIMessage, "content" | "pinned" | "edited_timestamp">> {
+export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends WritableStore<
+	Pick<APIMessage, "content" | "pinned" | "edited_timestamp">
+> {
 	get [Symbol.toStringTag || Symbol()]() {
 		return "DiscordMessage";
 	}
@@ -322,10 +309,7 @@ export class DiscordMessage<
 	}
 
 	pin(put = true) {
-		return this.$channel.Request[put ? "put" : "delete"](
-			`channels/${this.$channel.id}/pins/${this.id}`,
-			{}
-		);
+		return this.$channel.Request[put ? "put" : "delete"](`channels/${this.$channel.id}/pins/${this.id}`, {});
 	}
 
 	unpin(put = false) {
@@ -549,9 +533,7 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 		// if we currently have more messages than the limit, we have to fetch more
 		if (currentState.length >= limit) {
-			const messages = await this.$channel
-				.getMessages({ before: currentState[0].id, limit })
-				.response();
+			const messages = await this.$channel.getMessages({ before: currentState[0].id, limit }).response();
 			this.converge(messages);
 			return messages;
 		} else {
@@ -614,9 +596,7 @@ class TypingState<T extends DiscordTextChannelProps> extends WritableStore<Disco
 	private _user?: DiscordUser;
 
 	getUser() {
-		return (
-			this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!)
-		);
+		return this._user || (this._user = this.$channel.$users.get(this.$channel.Request.config.user_id!)!);
 	}
 
 	users = new Set<DiscordUser>();
@@ -937,9 +917,7 @@ export class DiscordGuildTextChannel<
 	}
 }
 
-export class DiscordDirectMessage<
-	T extends DiscordDMBaseProps = DiscordDMBaseProps
-> extends DiscordMessage<T> {
+export class DiscordDirectMessage<T extends DiscordDMBaseProps = DiscordDMBaseProps> extends DiscordMessage<T> {
 	/**
 	 * @param appended - whether this function is being called because a new message was created
 	 */
