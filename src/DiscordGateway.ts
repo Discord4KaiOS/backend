@@ -181,6 +181,8 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 		super();
 	}
 
+	customAck: null | any = null;
+
 	logger = new Logger("Gateway", getRandomColor());
 
 	login(token: string) {
@@ -243,30 +245,34 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 	#hearbeatAck() {
 		if (this.authenticated) return;
 		this.authenticated = true;
-		this.send({
-			op: 2,
-			d: {
-				token: this.token,
-				capabilities: 16381,
-				properties: SuperProperties,
-				presence: {
-					status: "unknown",
-					since: 0,
-					activities: [],
-					afk: false,
-				},
-				compress: false,
-				client_state: {
-					guild_versions: {},
-					highest_last_message_id: "0",
-					read_state_version: 0,
-					user_guild_settings_version: -1,
-					user_settings_version: -1,
-					private_channels_version: "0",
-					api_code_version: 0,
-				},
-			},
-		});
+		this.send(
+			this.customAck
+				? this.customAck
+				: {
+						op: 2,
+						d: {
+							token: this.token,
+							capabilities: 16381,
+							properties: SuperProperties,
+							presence: {
+								status: "unknown",
+								since: 0,
+								activities: [],
+								afk: false,
+							},
+							compress: false,
+							client_state: {
+								guild_versions: {},
+								highest_last_message_id: "0",
+								read_state_version: 0,
+								user_guild_settings_version: -1,
+								user_settings_version: -1,
+								private_channels_version: "0",
+								api_code_version: 0,
+							},
+						},
+				  }
+		);
 	}
 
 	close() {

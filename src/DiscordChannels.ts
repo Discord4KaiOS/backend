@@ -198,7 +198,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 		if (!id) throw new Error("Invalid emoji");
 		const has = this.get(id);
 		if (!has) {
-			this.insert({ emoji, count: 1, me });
+			this.insert({ emoji, count: 1, me } as any);
 			return;
 		}
 
@@ -316,6 +316,20 @@ export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChann
 		return this.pin(put);
 	}
 
+	canPin() {
+		const channel = this.$channel as DiscordGuildTextChannel | DiscordTextChannel<T>;
+
+		if ("roleAccess" in channel) {
+			const access = channel.roleAccess();
+			// you can't pin if you can't manage messages
+			if (access.MANAGE_MESSAGES !== true) return false;
+		}
+
+		// you can pretty much pin anywhere
+		// you can only pin if message is default or a reply
+		return [0, 19].includes(this.$.type);
+	}
+
 	/**
 	 * TODO: figure out how message editing actually works
 	 */
@@ -323,6 +337,16 @@ export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChann
 		return this.$channel.Request.patch(`channels/${this.$channel.id}/messages/${this.id}`, {
 			data: { content, ...opts },
 		});
+	}
+
+	isEditable() {
+		// you can't edit voice messages
+		if (this.$.flags == 8192) return false;
+		if ([0, 19].includes(this.$.type) && this.user_id == this.author.id)
+			// default message type or reply, you can only edit your own messages
+			return true;
+
+		return false;
 	}
 
 	reply(
@@ -345,7 +369,22 @@ export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChann
 		);
 	}
 
-	wouldPing() {
+	isRepliable() {
+		const channel = this.$channel as DiscordGuildTextChannel | DiscordTextChannel<T>;
+
+		if ("roleAccess" in channel) {
+			const access = channel.roleAccess();
+			// you can't reply if you can't send messages
+			if (access.SEND_MESSAGES === false) return false;
+		}
+
+		// you can only reply if message is default or a reply
+		if ([0, 19].includes(this.$.type)) return true;
+
+		return false;
+	}
+
+	wouldPing(...args: any) {
 		const userID = this.user_id;
 
 		const { mention_everyone, mentions, mention_roles } = this.$;
@@ -357,6 +396,21 @@ export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChann
 		if (this.$guild && mention_roles) {
 			const roles = this.$guild.$users.get(userID)?.profiles.get(this.$guild.id)?.value.roles;
 			if (roles) return Boolean(mention_roles.some((r) => roles.includes(r)));
+		}
+
+		return false;
+	}
+
+	canDelete() {
+		const isSameUser = this.author.id === this.user_id;
+
+		if (isSameUser) return true;
+
+		const channel = this.$channel as DiscordGuildTextChannel | DiscordTextChannel<T>;
+
+		if ("roleAccess" in channel) {
+			const access = channel.roleAccess();
+			return access.MANAGE_MESSAGES === true;
 		}
 
 		return false;
