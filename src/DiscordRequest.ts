@@ -156,7 +156,7 @@ export default class DiscordRequest {
 	request<T = any>(method: string, url: string, props: RequestProps) {
 		// @ts-ignore: this should work, I have no idea why it's not working
 		const xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
-		xhr.open(method, fullURL(url), true);
+		xhr.open(method.toUpperCase(), fullURL(url), true);
 
 		const headers = {
 			"Content-Type": "application/json",
@@ -181,7 +181,11 @@ export default class DiscordRequest {
 		let body: string | FormData | Blob | undefined;
 
 		if (props.data) {
-			if (typeof props.data === "string" || props.data instanceof Blob || props.data instanceof FormData) {
+			if (
+				typeof props.data === "string" ||
+				props.data instanceof Blob ||
+				props.data instanceof FormData
+			) {
 				body = props.data;
 			} else {
 				body = JSON.stringify(props.data);
