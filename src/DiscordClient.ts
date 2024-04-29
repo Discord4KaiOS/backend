@@ -105,6 +105,14 @@ export class UsersJar extends Jar<DiscordUser> {
 	constructor(public $client: DiscordClientReady) {
 		super();
 	}
+
+	get(key: string): DiscordUser | undefined {
+		const has = super.get(key);
+		if (!has) {
+			// what to do????
+		}
+		return has;
+	}
 }
 
 class RelationshipsJar extends Jar<DiscordRelationship> {
@@ -207,9 +215,13 @@ class GuildsJar extends Jar<DiscordGuild> {
 	toSorted() {
 		const all = this.list();
 
+		console.error(this.$client.userSettings.value.guildFolders);
+
+		const guildFolders = this.$client.userSettings.value.guildFolders?.folders || [];
+
 		// cloned folders objects
-		const folders = this.$client.userSettings.value
-			.guildFolders!.folders.filter((a) => a.id)
+		const folders = guildFolders
+			.filter((a) => a.id)
 			.map((obj) => {
 				return {
 					guilds: [],
@@ -219,9 +231,7 @@ class GuildsJar extends Jar<DiscordGuild> {
 					name: obj.name?.value || null,
 				} as GuildsFolder;
 			});
-		const arrangement = this.$client.userSettings.value
-			.guildFolders!.folders.map((a) => a.guildIds)
-			.flat();
+		const arrangement = guildFolders.map((a) => a.guildIds).flat();
 
 		if (arrangement.length) {
 			const indexer = <T extends { id: string }>({ id }: T) => arrangement.indexOf(id);
@@ -758,7 +768,13 @@ export class DiscordClientReady {
 			}
 
 			if ("typingState" in channel) {
-				channel.typingState.add(this.users.get(evt.user_id)!);
+				let user = this.users.get(evt.user_id);
+
+				if (!user && evt.member?.user) {
+					user = this.addUser(evt.member.user);
+				}
+
+				user && channel.typingState.add(user);
 			}
 		});
 
