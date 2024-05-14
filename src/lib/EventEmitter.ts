@@ -11,8 +11,16 @@ export default class EventEmitter<T extends EventMap = EventMap> {
 	private _events = new Map<keyof T, Set<Function>>();
 	static logger = new Logger("EventEmitter");
 
+	removeAllListeners() {
+		this._events.clear();
+	}
+
 	on<K extends keyof T>(event: K, listener: (...args: T[K]) => any): void {
 		this._events.set(event, (this._events.get(event) || new Set()).add(listener));
+	}
+
+	addEventListener<K extends keyof T>(event: K, listener: (...args: T[K]) => any): void {
+		this.on(event, listener);
 	}
 
 	once<K extends keyof T>(event: K, listener: (...args: T[K]) => any) {
@@ -25,6 +33,10 @@ export default class EventEmitter<T extends EventMap = EventMap> {
 
 	off<K extends keyof T>(event: K, listener: (...args: T[K]) => any) {
 		this._events.get(event)?.delete(listener);
+	}
+
+	removeEventListener<K extends keyof T>(event: K, listener: (...args: T[K]) => any) {
+		this.off(event, listener);
 	}
 
 	subscribe<K extends keyof T>(event: K, listener: (...args: T[K]) => any): Unsubscriber {
