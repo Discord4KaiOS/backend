@@ -185,6 +185,9 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 
 	logger = new Logger("Gateway", getRandomColor());
 
+	private reconnect = false;
+	private reconnectURL = "";
+
 	login(token: string) {
 		this.token = token;
 	}
@@ -207,6 +210,10 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 				break;
 			case GatewayOPCodes.HeartbeatAck:
 				this.#hearbeatAck();
+				break;
+			case GatewayOPCodes.Reconnect:
+				// TODO: We could probably just reconnect according to the discord docs, but eh
+				this.close();
 				break;
 			default:
 				this.logger.err("OP " + packet.op + "not found!")();
