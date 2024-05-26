@@ -506,6 +506,7 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 		const has = this.get(message.id!);
 		if (!has) return null;
 
+		message.embeds && has.embeds.deepSet(message.embeds);
 		has.shallowSet(
 			toVoid({
 				content: message.content!,
