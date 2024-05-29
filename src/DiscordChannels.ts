@@ -18,7 +18,16 @@ import {
 } from "./DiscordClient";
 import DiscordRequest, { ResponsePost } from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import { Jar, WritableStore, toQuery, toVoid, ChannelType, mergeLikeSet } from "./lib/utils";
+import {
+	Jar,
+	WritableStore,
+	toQuery,
+	toVoid,
+	ChannelType,
+	mergeLikeSet,
+	signal,
+	Signal,
+} from "./lib/utils";
 type TextChannelType =
 	| ChannelType.DM
 	| ChannelType.GroupDM
@@ -33,7 +42,6 @@ type TextChannelType =
 	| ChannelType.GuildMedia;
 
 import { DiscordGuild } from "./DiscordGuild";
-import { Signal, signal } from "@preact/signals";
 import EventEmitter from "./lib/EventEmitter";
 import Deferred from "./lib/Deffered";
 
@@ -455,7 +463,7 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 		const waiting = this.waiting.get(m.id);
 		if (waiting) {
 			this.waiting.delete(m.id);
-			waiting.value = m;
+			waiting.set(m);
 		}
 	}
 
@@ -486,20 +494,37 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 		this._messageType = type;
 	}
 
-	waiting = new Map<string, Signal<DiscordMessage<T> | null>>();
+	waiting = new Map<string, WritableStore<DiscordMessage<T> | null>>();
 
-	waitForMessage(id: string) {
+	waitForMessage(id: string, return_signal: false): WritableStore<DiscordMessage<T> | null>;
+	waitForMessage(id: string, return_signal: true): Signal<DiscordMessage<T> | null>;
+	waitForMessage(id: string): Signal<DiscordMessage<T> | null>;
+	waitForMessage(id: string, return_signal = true) {
 		const has = this.get(id);
-		if (has) return signal(has);
-
 		const hasBeenWaiting = this.waiting.get(id);
-		if (hasBeenWaiting) {
-			return hasBeenWaiting;
+
+		if (return_signal) {
+			if (has) return signal(has);
+			if (hasBeenWaiting) {
+				const _sig = signal(hasBeenWaiting.value);
+				hasBeenWaiting.subscribe((v) => (_sig.value = v));
+				return _sig;
+			}
 		}
 
-		const _signal = signal<DiscordMessage<T> | null>(null);
-		this.waiting.set(id, _signal);
-		return _signal;
+		if (has) return new WritableStore(has);
+		if (hasBeenWaiting) return hasBeenWaiting;
+
+		const store = new WritableStore<DiscordMessage<T> | null>(null);
+		this.waiting.set(id, store);
+
+		if (return_signal) {
+			const _sigma = signal(store.value);
+			store.subscribe((v) => (_sigma.value = v));
+			return _sigma;
+		}
+
+		return store;
 	}
 
 	update(message: Partial<APIMessage>) {

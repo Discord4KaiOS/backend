@@ -178,14 +178,16 @@ create a login error with this name
 		if ("token" in props) {
 			logger.dbg("token provided")();
 
-			logger.dbg("validating token...");
+			logger.dbg("validating token...")();
 
 			try {
-				req.get("users/@me", {
-					headers: {
-						authorization: props.token,
-					},
-				});
+				await req
+					.get("users/@me", {
+						headers: {
+							authorization: props.token,
+						},
+					})
+					.response();
 			} catch {
 				this.result = null;
 				throw new InvalidTokenError();

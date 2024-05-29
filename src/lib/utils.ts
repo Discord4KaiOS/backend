@@ -4,11 +4,18 @@ import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 import JSBI from "jsbi";
 
-import type { Signal, signal } from "@preact/signals";
+import type { Signal, signal as __signal } from "@preact/signals";
 
-let _signal: null | typeof signal = null;
+let _signal: null | typeof __signal = null;
 
 import("@preact/signals").then((s) => (_signal = s.signal)).catch(() => {});
+
+export function signal<T>(value: T): Signal<T> {
+	if (!_signal) throw new Error("Signal not available");
+	return _signal(value);
+}
+
+export type { Signal };
 
 let currentJarID = Symbol("jarID");
 
