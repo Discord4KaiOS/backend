@@ -215,7 +215,7 @@ class GuildsJar extends Jar<DiscordGuild> {
 	toSorted() {
 		const all = this.list();
 
-		console.error(this.$client.userSettings.value.guildFolders);
+		// console.error(this.$client.userSettings.value.guildFolders);
 
 		const guildFolders = this.$client.userSettings.value.guildFolders?.folders || [];
 

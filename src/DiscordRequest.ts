@@ -47,7 +47,7 @@ export class Response<T = any> {
 		// reject if status is not 2xx
 		xhr.onloadend = async () => {
 			if (xhr.status < 200 || xhr.status >= 300) {
-				console.error("XHR ERROR OCCURED SHOULD BE REJECTED AS EXPECTED");
+				// console.error("XHR ERROR OCCURED SHOULD BE REJECTED AS EXPECTED");
 				const response = xhr.response;
 				if ("captcha_sitekey" in response) {
 					const c_evt = new CaptchaEvent(response.captcha_sitekey, response.captcha_service);
@@ -182,7 +182,11 @@ export default class DiscordRequest {
 		let body: string | FormData | Blob | undefined;
 
 		if (props.data) {
-			if (typeof props.data === "string" || props.data instanceof Blob || props.data instanceof FormData) {
+			if (
+				typeof props.data === "string" ||
+				props.data instanceof Blob ||
+				props.data instanceof FormData
+			) {
 				body = props.data;
 			} else {
 				body = JSON.stringify(props.data);

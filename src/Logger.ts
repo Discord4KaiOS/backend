@@ -61,49 +61,50 @@ export default class Logger {
 	}
 
 	private _log(type: consoleTypes, ...args: any[]) {
-		if (Logger.disabled || Logger.disabledNames.includes(this.name)) return () => {};
-
-		const binded = Function.prototype.bind.call(
-			console[type],
-			console,
-			`%c[${this.name}]%c`,
-			`color: ${this.color}; font-weight: 700;`,
-			"",
-			...args
-		);
-
-		Logger.fileLog(this.name, String(type), args, new Error().stack);
-
-		return binded;
+		return () => {};
+		// if (Logger.disabled || Logger.disabledNames.includes(this.name)) return () => {};
+		//
+		// const binded = Function.prototype.bind.call(
+		// 	console[type],
+		// 	console,
+		// 	`%c[${this.name}]%c`,
+		// 	`color: ${this.color}; font-weight: 700;`,
+		// 	"",
+		// 	...args
+		// );
+		//
+		// // Logger.fileLog(this.name, String(type), args, new Error().stack);
+		//
+		// return binded;
 	}
 
-	static fileLog(name: string, type: string, args: any[], stack?: string) {
-		setTimeout(() => {
-			const obj = {
-				name,
-				type,
-				args,
-				stack,
-			};
-
-			Logger.file.push(obj);
-		}, 5 + Math.floor(100 * Math.random()));
-	}
-
-	static exportFile() {
-		return prune(Logger.file, {
-			allProperties: true,
-			inheritedProperties: true,
-			// replacer: function r(value: any, defaultValue: any, circular: any) {
-			// 	if (typeof value === "object" && !circular) {
-			// 		return prune(value, {
-			// 			allProperties: true,
-			// 			inheritedProperties: true,
-			// 			replacer: r,
-			// 		});
-			// 	}
-			// 	return defaultValue;
-			// },
-		});
-	}
+	// static fileLog(name: string, type: string, args: any[], stack?: string) {
+	// 	setTimeout(() => {
+	// 		const obj = {
+	// 			name,
+	// 			type,
+	// 			args,
+	// 			stack,
+	// 		};
+	//
+	// 		Logger.file.push(obj);
+	// 	}, 5 + Math.floor(100 * Math.random()));
+	// }
+	//
+	// static exportFile() {
+	// 	return prune(Logger.file, {
+	// 		allProperties: true,
+	// 		inheritedProperties: true,
+	// 		// replacer: function r(value: any, defaultValue: any, circular: any) {
+	// 		// 	if (typeof value === "object" && !circular) {
+	// 		// 		return prune(value, {
+	// 		// 			allProperties: true,
+	// 		// 			inheritedProperties: true,
+	// 		// 			replacer: r,
+	// 		// 		});
+	// 		// 	}
+	// 		// 	return defaultValue;
+	// 		// },
+	// 	});
+	// }
 }
