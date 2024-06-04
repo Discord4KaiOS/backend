@@ -46,6 +46,7 @@ import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
 import { PreloadedUserSettings } from "./lib/discord-protos";
+import { Writable, readable, writable } from "./lib/stores";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
@@ -350,24 +351,48 @@ export class DiscordClientReady {
 
 			const { id, recipient_ids, recipients, type, ...obj } = r;
 
+			// add users
+			recipients?.forEach((a) => this.addUser(a));
+
+			let dmToManipulate: DiscordDMChannel | DiscordGroupDMChannel | undefined;
+
 			const _recipients = recipients
-				? recipients.map((a) => this.users.get(a.id)!)
-				: recipient_ids.map((a) => this.users.get(a)!);
+				? recipients.map((a) => this.users.get(a.id)!).filter((a) => a)
+				: recipient_ids.map((a) => this.users.get(a)!).filter((a) => a);
 
 			if (has) {
+				dmToManipulate = has;
 				has.setState(obj);
 
 				has.recipients.shallowSet(mergeLikeSet(currentUser, _recipients));
 			} else {
 				if (r.type === ChannelType.DM) {
 					const dm = new DiscordDMChannel(obj, r.id, _recipients, this);
+					dmToManipulate = dm;
 					this.dms.add(r.id, dm);
 				} else {
 					const groupDM = new DiscordGroupDMChannel(obj, r.id, _recipients, this);
+					dmToManipulate = groupDM;
 					this.dms.add(r.id, groupDM);
 				}
 				this.dms.sorted.refresh();
 			}
+
+			if (dmToManipulate)
+				recipient_ids
+					.filter((a) => typeof a == "string")
+					.forEach((a) => {
+						if (dmToManipulate?.recipients.value.find((a) => a.id)) {
+							// if it's already in there we don't have to wait for the user to load up
+							return;
+						}
+						const unsub = this.waitForUser(a).subscribe((user) => {
+							if (user) {
+								unsub();
+								dmToManipulate?.recipients.shallowUpdate((m) => mergeLikeSet(m, user));
+							}
+						});
+					});
 		});
 	}
 
@@ -842,6 +867,22 @@ export class DiscordClientReady {
 		});
 	}
 
+	waitingForUsers = new Map<string, Writable<DiscordUser | null>>();
+
+	waitForUser(id: string) {
+		const $user = writable<DiscordUser | null>(null);
+
+		const initUser = this.users.get(id);
+
+		if (initUser) {
+			$user.set(initUser);
+		} else {
+			this.waitingForUsers.set(id, $user);
+		}
+
+		return $user;
+	}
+
 	addUser(user: ClientAPIUser | APIUser) {
 		const has = this.users.get(user.id);
 		// user object from API for current user lacks some properties
@@ -858,6 +899,7 @@ export class DiscordClientReady {
 				return _user;
 			}
 			this.users.set(user.id, _user);
+			this.waitingForUsers.get(user.id)?.set(_user);
 			return _user;
 		}
 		return has;

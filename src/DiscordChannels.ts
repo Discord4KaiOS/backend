@@ -1075,8 +1075,13 @@ export class DiscordDMChannel extends DiscordDMBase<DiscordDMBaseProps> {
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 
-		const currentUser = $client.users.get($client.config.user_id!)!;
-		this.recipients.set(mergeLikeSet(currentUser, recipients));
+		const currentUser = $client.users.get($client.ready.user.id)!;
+		this.recipients.set(
+			mergeLikeSet(
+				currentUser,
+				recipients.filter((a) => a)
+			)
+		);
 
 		this.$users = $client.users;
 		this.Request = $client.Request;
@@ -1123,7 +1128,7 @@ export class DiscordGroupDMChannel extends DiscordDMBase<DiscordGroupDMChannelPr
 	) {
 		super({ last_message_id: null, last_pin_timestamp: null, ...initialProps });
 
-		const currentUser = $client.users.get($client.config.user_id!)!;
+		const currentUser = $client.users.get($client.ready.user.id)!;
 		this.recipients.set(mergeLikeSet(currentUser, recipients));
 
 		this.$users = $client.users;
