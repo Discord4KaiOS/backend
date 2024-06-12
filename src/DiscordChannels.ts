@@ -18,16 +18,7 @@ import {
 } from "./DiscordClient";
 import DiscordRequest, { ResponsePost } from "./DiscordRequest";
 import Gateway from "./DiscordGateway";
-import {
-	Jar,
-	WritableStore,
-	toQuery,
-	toVoid,
-	ChannelType,
-	mergeLikeSet,
-	signal,
-	Signal,
-} from "./lib/utils";
+import { Jar, WritableStore, toQuery, toVoid, ChannelType, mergeLikeSet } from "./lib/utils";
 type TextChannelType =
 	| ChannelType.DM
 	| ChannelType.GroupDM
@@ -496,33 +487,15 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 
 	waiting = new Map<string, WritableStore<DiscordMessage<T> | null>>();
 
-	waitForMessage(id: string, return_signal: false): WritableStore<DiscordMessage<T> | null>;
-	waitForMessage(id: string, return_signal: true): Signal<DiscordMessage<T> | null>;
-	waitForMessage(id: string): Signal<DiscordMessage<T> | null>;
-	waitForMessage(id: string, return_signal = true) {
+	waitForMessage(id: string): WritableStore<DiscordMessage<T> | null> {
 		const has = this.get(id);
 		const hasBeenWaiting = this.waiting.get(id);
 
-		if (return_signal) {
-			if (has) return signal(has);
-			if (hasBeenWaiting) {
-				const _sig = signal(hasBeenWaiting.value);
-				hasBeenWaiting.subscribe((v) => (_sig.value = v));
-				return _sig;
-			}
-		}
-
-		if (has) return new WritableStore(has);
+		if (has) return new WritableStore<DiscordMessage<T> | null>(has);
 		if (hasBeenWaiting) return hasBeenWaiting;
 
 		const store = new WritableStore<DiscordMessage<T> | null>(null);
 		this.waiting.set(id, store);
-
-		if (return_signal) {
-			const _sigma = signal(store.value);
-			store.subscribe((v) => (_sigma.value = v));
-			return _sigma;
-		}
 
 		return store;
 	}

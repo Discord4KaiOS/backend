@@ -4,21 +4,6 @@ import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 import JSBI from "jsbi";
 
-// @ts-ignore
-import type { Signal, signal as __signal } from "@preact/signals";
-
-let _signal: null | typeof __signal = null;
-
-// @ts-ignore
-import("@preact/signals").then((s) => (_signal = s.signal)).catch(() => {});
-
-export function signal<T>(value: T): Signal<T> {
-	if (!_signal) throw new Error("Signal not available");
-	return _signal(value);
-}
-
-export type { Signal };
-
 let currentJarID = Symbol("jarID");
 
 const JarIDEvent = Symbol("id");
@@ -350,22 +335,6 @@ export class WritableStore<T> {
 		jsonObj.value = this.value;
 
 		return jsonObj;
-	}
-
-	private _signal: Signal<T> | null = null;
-
-	/**
-	 * @internal
-	 * returns a preact signal value if available, returns null if not available,
-	 * will assert a signal is available for convenience purposes
-	 */
-	get v(): T {
-		if (this._signal) return this._signal.value;
-		if (!_signal) return null as any;
-		const signal = _signal(this.value);
-		this.subscribe((val) => (signal.value = val));
-		this._signal = signal;
-		return signal.value;
 	}
 }
 
