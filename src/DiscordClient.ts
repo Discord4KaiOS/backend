@@ -44,7 +44,7 @@ import {
 import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
-import { PreloadedUserSettings } from "./lib/discord-protos";
+import type { PreloadedUserSettings_GuildFolder } from "./lib/discord-protos";
 import { Writable, writable } from "./lib/stores";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
@@ -287,7 +287,7 @@ class GuildsJar extends Jar<DiscordGuild> {
 			this.refresh();
 		});
 
-		$client.userSettings.subscribe(() => {
+		$client.guildFolders.subscribe(() => {
 			this.refresh();
 		});
 
@@ -314,7 +314,7 @@ class GuildsJar extends Jar<DiscordGuild> {
 
 		// console.error(this.$client.userSettings.value.guildFolders);
 
-		const guildFolders = this.$client.userSettings.value.guildFolders?.folders || [];
+		const guildFolders = this.$client.guildFolders.value || [];
 
 		// cloned folders objects
 		const folders = guildFolders
@@ -382,9 +382,9 @@ class ChannelOverridesJar extends Jar<DiscordChannelOverride> {
 
 export class DiscordGuildSettingsJar extends Jar<DiscordGuildSetting, string | null> {}
 
-class DiscordUserSettings extends WritableStore<ReadyEvent["user_settings"]> {
-	constructor(public $client: DiscordClientReady) {
-		super($client.ready.user_settings);
+class DiscordGuildFoldersSetting extends WritableStore<PreloadedUserSettings_GuildFolder[] | null> {
+	constructor() {
+		super(null);
 	}
 }
 
@@ -417,7 +417,9 @@ export class DiscordClientReady {
 	config: Config;
 
 	logger = new Logger("DiscordClientReady");
-	userSettings: DiscordUserSettings;
+
+	guildFolders = new DiscordGuildFoldersSetting();
+
 	users: UsersJar;
 	relationships: RelationshipsJar;
 	dms: DMsJar;
@@ -517,7 +519,9 @@ export class DiscordClientReady {
 				const user = this.users.get(member.user_id);
 				if (!user) throw new Error("handleMergedMembers user not found");
 
-				const profile = user.profiles.insert(member, guild);
+				const _user = ("user" in member && (member.user as APIUser)) || user.$;
+
+				const profile = user.profiles.insert({ ...member, user: _user }, guild);
 				guild.members.add(profile);
 			});
 		});
@@ -544,13 +548,19 @@ export class DiscordClientReady {
 		this.config = config;
 		if (!config.client) throw Error("DiscordClient not initialized!");
 
+		// import only when needed
+		import("./lib/userSettings").then((a) => {
+			a.getGuildFoldersFromProto(ready.user_settings_proto).then((guildFolders) => {
+				this.guildFolders.set(guildFolders);
+			});
+		});
+
 		this.users = new UsersJar(this);
 		this.relationships = new RelationshipsJar(this);
 		ready.users.forEach((u) => this.addUser(u));
 
 		this.dms = new DMsJar();
 
-		this.userSettings = new DiscordUserSettings(this);
 		this.guilds = new GuildsJar(this);
 		this.guildSettings = new DiscordGuildSettingsJar();
 		this.readStates = new ReadStateHandler(this);
@@ -915,10 +925,10 @@ export class DiscordClientReady {
 		});
 
 		Gateway.on("t:guild_members_chunk", (evt) => {
-			evt.members.forEach(({ user, ...rest }) => {
-				if (!user) return;
+			evt.members.forEach((rest) => {
+				if (!rest.user) return;
 
-				const _user = this.addUser(user);
+				const _user = this.addUser(rest.user);
 				const guild = this.guilds.get(evt.guild_id);
 				if (!guild) return;
 
@@ -962,9 +972,12 @@ export class DiscordClientReady {
 		});
 
 		Gateway.on("t:user_settings_proto_update", (evt) => {
-			if (evt.settings?.proto) {
-				const user_settings = PreloadedUserSettings.fromBase64(evt.settings.proto);
-				this.userSettings.setStateDeep(user_settings);
+			if (!evt.partial && evt.settings?.proto) {
+				import("./lib/userSettings").then((a) =>
+					a.getGuildFoldersFromProto(evt.settings.proto).then((guildFolders) => {
+						this.guildFolders.set(guildFolders);
+					})
+				);
 			}
 		});
 
@@ -1043,8 +1056,6 @@ export default class DiscordClient extends EventEmitter {
 
 		this.Gateway.once("t:ready", (evt: ReadyEvent) => {
 			try {
-				const user_settings = PreloadedUserSettings.fromBase64(evt.user_settings_proto);
-				evt.user_settings = user_settings;
 				evt.guilds.forEach((a) => {
 					// dirty bit, too lazy to rewrite types sorry
 					if ("properties" in a) {

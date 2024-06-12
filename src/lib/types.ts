@@ -57,7 +57,7 @@ export interface ClientAPIGuildMember extends APIGuildMember {
 export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {
 	// user_settings: UserSettings;
 	user_settings_proto: string;
-	user_settings: PreloadedUserSettings;
+	// user_settings: PreloadedUserSettings;
 	user_guild_settings: {
 		entries: ClientUserGuildSetting[];
 		partial: boolean;
