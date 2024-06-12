@@ -13,6 +13,8 @@ interface DiscordReadStateProps extends Omit<ClientReadState, "last_message_id">
 }
 
 export class DiscordReadState extends WritableStore<DiscordReadStateProps> {
+	notFound = false;
+
 	increment(count = 1) {
 		this.shallowUpdate((s) => ({
 			...s,
@@ -92,6 +94,8 @@ export default class ReadStateHandler extends Jar<DiscordReadState> {
 					id: channelID,
 					mention_count: 0,
 				});
+				newState.notFound = true;
+
 				this.set(channelID, newState);
 				return newState;
 			} else {

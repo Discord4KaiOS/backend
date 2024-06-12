@@ -4,10 +4,12 @@ import EventEmitter, { EventMap } from "./EventEmitter";
 import { Invalidator, Subscriber, Unsubscriber, Updater, get, writable } from "./stores";
 import JSBI from "jsbi";
 
+// @ts-ignore
 import type { Signal, signal as __signal } from "@preact/signals";
 
 let _signal: null | typeof __signal = null;
 
+// @ts-ignore
 import("@preact/signals").then((s) => (_signal = s.signal)).catch(() => {});
 
 export function signal<T>(value: T): Signal<T> {

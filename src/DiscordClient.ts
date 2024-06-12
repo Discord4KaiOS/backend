@@ -13,14 +13,13 @@ import {
 	ClientAPIUser,
 	ClientGuild,
 	ReadySupplementalEvent,
+	ClientAPIGuildMember,
 } from "./lib/types";
 import EventEmitter from "./lib/EventEmitter";
 import type {
 	APIChannel,
-	APIGuildMember,
 	APIGuildTextChannel,
 	Snowflake,
-	APIMessage,
 	GatewayGuildCreateDispatchData,
 	GatewayActivity,
 	PresenceUpdateReceiveStatus,
@@ -46,13 +45,13 @@ import { DiscordGuild, DiscordServerProfile } from "./DiscordGuild";
 import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
 import { PreloadedUserSettings } from "./lib/discord-protos";
-import { Writable, readable, writable } from "./lib/stores";
+import { Writable, writable } from "./lib/stores";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
 		super();
 	}
-	insert(profile: APIGuildMember, guild: DiscordGuild) {
+	insert(profile: ClientAPIGuildMember, guild: DiscordGuild) {
 		const has = this.get(guild.id);
 		if (has) {
 			// roles is the only part that needs to be recursively checked
@@ -66,6 +65,68 @@ class ServerProfilesJar extends Jar<DiscordServerProfile> {
 		return has;
 	}
 }
+
+/*
+1 << 0		Discord Employee
+1 << 1		Partnered Server Owner
+1 << 2		HypeSquad Events Member
+1 << 3		Bug Hunter Level 1
+1 << 6		House Bravery Member
+1 << 7		House Brilliance Member
+1 << 8		House Balance Member
+1 << 9		Early Nitro Supporter
+1 << 10		User is a team
+1 << 14		Bug Hunter Level 2
+1 << 16		Verified Bot
+1 << 17		Early Verified Bot Developer
+1 << 18		Moderator Programs Alumni
+1 << 19		Bot uses only HTTP interactions and is shown in the online member list
+1 << 22		User is an Active Developer
+*/
+
+const TROPHIES = [
+	"STAFF",
+	"PARTNER",
+	"HYPESQUAD",
+	"BUG_HUNTER_LEVEL_1",
+	,
+	,
+	"HYPESQUAD_ONLINE_HOUSE_1",
+	"HYPESQUAD_ONLINE_HOUSE_2",
+	"HYPESQUAD_ONLINE_HOUSE_3",
+	"PREMIUM_EARLY_SUPPORTER",
+	"TEAM_PSEUDO_USER",
+	,
+	,
+	,
+	"BUG_HUNTER_LEVEL_2",
+	,
+	"VERIFIED_BOT",
+	"VERIFIED_DEVELOPER",
+	"CERTIFIED_MODERATOR",
+	"BOT_HTTP_INTERACTIONS",
+	,
+	,
+	"ACTIVE_DEVELOPER",
+];
+
+type TROPHY =
+	| "STAFF"
+	| "PARTNER"
+	| "HYPESQUAD"
+	| "BUG_HUNTER_LEVEL_1"
+	| "HYPESQUAD_ONLINE_HOUSE_1"
+	| "HYPESQUAD_ONLINE_HOUSE_2"
+	| "HYPESQUAD_ONLINE_HOUSE_3"
+	| "PREMIUM_EARLY_SUPPORTER"
+	| "TEAM_PSEUDO_USER"
+	| "BUG_HUNTER_LEVEL_2"
+	| "VERIFIED_BOT"
+	| "VERIFIED_DEVELOPER"
+	| "CERTIFIED_MODERATOR"
+	| "BOT_HTTP_INTERACTIONS"
+	| "ACTIVE_DEVELOPER";
+
 export class DiscordUser extends WritableStore<ClientAPIUser> {
 	id: string;
 	$users: UsersJar;
@@ -78,6 +139,41 @@ export class DiscordUser extends WritableStore<ClientAPIUser> {
 
 	get relationship() {
 		return this.$client.relationships.get(this.id);
+	}
+
+	isWebhook() {
+		return this.$.bot && this.$.discriminator === "0000";
+	}
+
+	private _throphies = [] as TROPHY[];
+
+	/**
+	 * quick way to get the throphies, use getProfile for a better way of obtaining throphies
+	 */
+	get throphies() {
+		if (this._throphies.length) return this._throphies;
+		return (this._throphies = TROPHIES.filter((_, i) => {
+			if (!_ || typeof this.$.public_flags == "undefined") return false;
+			const bitwise = 1 << i;
+
+			return (bitwise & this.$.public_flags) == bitwise;
+		}) as TROPHY[]);
+	}
+
+	note = new WritableStore<null | string>(null);
+
+	async getNote() {
+		if (this.note.value) return;
+		try {
+			const resp = await this.$client.Request.get(`users/@me/notes/${this.id}`, {}).response();
+			this.note.set(resp.note);
+		} catch {
+			this.note.set("");
+		}
+	}
+
+	setNote(note: string) {
+		return this.$client.Request.put(`users/@me/notes/${this.id}`, { data: { note } });
 	}
 
 	get presence() {
@@ -855,7 +951,13 @@ export class DiscordClientReady {
 			});
 
 			evt.channels.forEach((state) => {
-				state.id && this.readStates.get(state.id).setState(state);
+				if (!state.id) return;
+
+				const _state = this.readStates.get(state.id);
+				_state.setState(state);
+				if (_state.notFound) {
+					this.logger.log("readstate was assigned via passive update", state)();
+				}
 			});
 		});
 
@@ -863,6 +965,19 @@ export class DiscordClientReady {
 			if (evt.settings?.proto) {
 				const user_settings = PreloadedUserSettings.fromBase64(evt.settings.proto);
 				this.userSettings.setStateDeep(user_settings);
+			}
+		});
+
+		Gateway.on("t:user_note_update", (e) => {
+			const user = this.users.get(e.id);
+			if (user) user.note.set(e.note);
+			else {
+				const unsub = this.waitForUser(e.id).subscribe((user) => {
+					if (user) {
+						unsub();
+						user.note.set(e.note);
+					}
+				});
 			}
 		});
 	}

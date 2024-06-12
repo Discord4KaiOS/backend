@@ -1,13 +1,8 @@
-import type {
-	APIGuildMember,
-	APIOverwrite,
-	GuildTextChannelType,
-	Snowflake,
-} from "discord-api-types/v10";
+import type { APIOverwrite, GuildTextChannelType, Snowflake } from "discord-api-types/v10";
 import { DiscordGuildChannelCategory, DiscordGuildTextChannel } from "./DiscordChannels";
 import { DiscordGuildSettingsJar, DiscordUser, UsersJar } from "./DiscordClient";
-import { WritableStore, toVoid, Jar, spread, ChannelType, sleep } from "./lib/utils";
-import { ClientChannel, ClientGuild } from "./lib/types";
+import { WritableStore, toVoid, Jar, ChannelType, sleep } from "./lib/utils";
+import { ClientAPIGuildMember, ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
 import Gateway from "./DiscordGateway";
@@ -48,7 +43,7 @@ export const PermissionFlagsBits = {
 
 export class DiscordServerProfile extends WritableStore<
 	Pick<
-		APIGuildMember,
+		ClientAPIGuildMember,
 		| "avatar"
 		| "deaf"
 		| "mute"
@@ -57,9 +52,14 @@ export class DiscordServerProfile extends WritableStore<
 		| "communication_disabled_until"
 		| "pending"
 		| "premium_since"
+		| "bio"
 	>
 > {
-	constructor(public $: APIGuildMember, public $guild: DiscordGuild, public user: DiscordUser) {
+	constructor(
+		public $: ClientAPIGuildMember,
+		public $guild: DiscordGuild,
+		public user: DiscordUser
+	) {
 		super($);
 	}
 }

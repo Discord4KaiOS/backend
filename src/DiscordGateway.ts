@@ -146,6 +146,8 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 
 	"t:passive_update_v1": [ClientPassiveUpdateV1];
 
+	"t:user_note_update": [{ id: Snowflake; note: string }];
+
 	close: [];
 	[x: string]: any[];
 	[x: symbol]: any[];

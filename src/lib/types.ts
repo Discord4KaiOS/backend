@@ -17,11 +17,19 @@ export type * from "discord-api-types/v10";
 import type { ChannelType } from "./utils";
 import { PreloadedUserSettings } from "./discord-protos";
 
+interface ClientClan {
+	identity_guild_id: string;
+	identity_enabled: boolean;
+	tag: string;
+	badge: string;
+}
+
 export interface ClientAPIUser extends APIUser {
 	avatar_decoration_data?: {
 		sku_id: string;
 		asset: string;
 	} | null;
+	clan?: ClientClan | null;
 }
 
 export interface ClientGuildMember
@@ -43,6 +51,7 @@ export interface ClientGuildMember
 
 export interface ClientAPIGuildMember extends APIGuildMember {
 	unusual_dm_activity_until?: string;
+	bio?: string;
 }
 
 export interface ReadyEvent extends Omit<GatewayReadyDispatchData, "guilds"> {

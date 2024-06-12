@@ -99,10 +99,16 @@ export class ResponsePost<T> extends EventEmitter<{
 	}
 }
 
+URLSearchParams;
+
 interface RequestProps {
 	headers?: Record<string, string | null | undefined>;
 	data?: object | string | FormData;
 	responseType?: XMLHttpRequestResponseType;
+	/**
+	 * adds search params on the url, if the url already has search params, it will be overwritten by the search params present in the url
+	 */
+	search?: Record<string, string | any>;
 }
 
 interface RequestContext {
@@ -157,7 +163,16 @@ export default class DiscordRequest {
 	request<T = any>(method: string, url: string, props: RequestProps) {
 		// @ts-ignore: this should work, I have no idea why it's not working
 		const xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
-		xhr.open(method.toUpperCase(), fullURL(url), true);
+
+		const _url = new URL(fullURL(url));
+
+		const urlWithoutParams = _url.origin + _url.pathname;
+		const paramsInit = Object.assign({}, props.search ?? {}, Object.fromEntries(_url.searchParams));
+		const params = new URLSearchParams(paramsInit);
+
+		const mergedURL = urlWithoutParams + (params.size ? "?" + params.toString() : "");
+
+		xhr.open(method.toUpperCase(), mergedURL, true);
 
 		const headers = {
 			"Content-Type": "application/json",
