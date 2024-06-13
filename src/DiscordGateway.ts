@@ -1,5 +1,4 @@
 import type {
-	APIGuildMember,
 	GatewayGuildCreateDispatchData,
 	GatewayGuildDeleteDispatchData,
 	GatewayGuildMemberUpdateDispatchData,
@@ -8,9 +7,7 @@ import type {
 	GatewayMessageCreateDispatchData,
 	GatewayMessageDeleteBulkDispatchData,
 	GatewayMessageDeleteDispatchData,
-	GatewayMessageReactionAddDispatch,
 	GatewayMessageReactionAddDispatchData,
-	GatewayMessageReactionRemoveAllDispatch,
 	GatewayMessageReactionRemoveAllDispatchData,
 	GatewayMessageReactionRemoveDispatchData,
 	GatewayMessageReactionRemoveEmojiDispatchData,
@@ -22,8 +19,6 @@ import type {
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
 
-import Pako from "pako";
-import type { Inflate } from "pako";
 import {
 	APIChannel,
 	ClientAPIGuildMember,
@@ -34,6 +29,8 @@ import {
 	ReadySupplementalEvent,
 	Snowflake,
 } from "./lib/types";
+import { createInflateInstance } from "./lib/wrapped";
+import * as Comlink from "comlink";
 
 const enum GatewayOPCodes {
 	Dispatch = 0,
@@ -177,7 +174,6 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 	private sequence_num: number | null = null;
 	private authenticated = false;
 	readonly streamURL = "wss://gateway.discord.gg/?v=9&encoding=json&compress=zlib-stream";
-	private _inflate: Inflate | null = null;
 
 	constructor(public _debug = false) {
 		super();
@@ -287,13 +283,13 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 	close() {
 		this.ws?.close();
 		this.ws = undefined;
-		if (this._inflate) {
-			// @ts-ignore
-			this._inflate.chunks = [];
-			this._inflate.onEnd = () => {};
-			this._inflate = null;
+		if (this.inflateInstance) {
+			this.inflateInstance(null);
+			this.inflateInstance = null;
 		}
 	}
+
+	inflateInstance: Awaited<ReturnType<typeof createInflateInstance>> | null = null;
 
 	init() {
 		if (!this.token) throw Error("You need to authenticate first!");
@@ -302,36 +298,39 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 
 		this.close();
 
-		const inflate = new Pako.Inflate({ chunkSize: 65536, to: "string" });
-
-		inflate.onEnd = (e: number) => {
-			// @ts-ignore
-			if (e !== Pako.Z_OK) throw new Error(`zlib error, ${e}, ${inflate.strm.msg}`);
-
-			// @ts-ignore
-			const chunks = inflate.chunks as string[];
-
-			const result = chunks.join("");
-			result && this.#handlePacket(JSON.parse(result));
-			chunks.length = 0;
-		};
-
-		this._inflate = inflate;
+		import("./lib/wrapped").then(async ({ createInflateInstance }) => {
+			this.inflateInstance = await createInflateInstance(
+				Comlink.proxy((data) => {
+					this.#handlePacket(data);
+				})
+			);
+		});
 
 		const ws = (this.ws = new WebSocket(this.streamURL));
 		ws.binaryType = "arraybuffer";
 
-		ws.addEventListener("message", ({ data }: MessageEvent<ArrayBuffer>) => {
-			if (!this._inflate) return;
+		const buffersToSend: ArrayBuffer[] = [];
+
+		ws.addEventListener("message", async ({ data }: MessageEvent<ArrayBuffer>) => {
 			if (!("byteLength" in data)) {
 				this.logger.err("Received non-arraybuffer data!", data)();
+				return;
 			}
 
-			const view = new DataView(data),
-				shouldFlush = view.byteLength >= 4 && 65535 === view.getUint32(view.byteLength - 4, false);
+			if (!this.inflateInstance) {
+				buffersToSend.push(data);
+			} else {
+				if (buffersToSend.length) {
+					for (let i = 0; i < buffersToSend.length; i++) {
+						const buff = buffersToSend[i];
+						await this.inflateInstance(buff);
+						console.log("buffer was received before inflateInstance was made");
+					}
+					buffersToSend.length = 0;
+				}
 
-			// @ts-ignore
-			this._inflate.push(data, shouldFlush && Pako.Z_SYNC_FLUSH);
+				await this.inflateInstance(data);
+			}
 		});
 		ws.addEventListener("open", () => this.logger.info("Sending Identity [OP 2]...")());
 		ws.addEventListener("close", () => {

@@ -1,29 +1,21 @@
 {
-  "name": "discord",
-  "private": true,
-  "version": "1.0.3",
-  "type": "module",
-  "scripts": {
-    "dev": "bun --hot --inspect-wait test.tsx"
-  },
-  "dependencies": {
-    "@protobuf-ts/runtime": "^2.9.3",
-    "@types/pako": "~1.0.5",
-    "comlink": "^4.4.1",
-    "discord-api-types": "^0.37.63",
-    "jsbi": "^4.3.0",
-    "json-prune": "^1.1.0",
-    "pako": "~1.0.5"
-  },
-  "devDependencies": {
-    "bun-types": "^1.0.11"
-  },
-  "peerDependencies": {
-    "@preact/signals": "^1.2.2"
-  },
-  "peerDependenciesMeta": {
-    "@preact/signals": {
-      "optional": true
-    }
-  }
+	"name": "discord",
+	"private": true,
+	"version": "1.0.3",
+	"type": "module",
+	"scripts": {
+		"dev": "bun --hot --inspect-wait test.tsx"
+	},
+	"dependencies": {
+		"@protobuf-ts/runtime": "^2.9.3",
+		"@types/pako": "~1.0.5",
+		"comlink": "^4.4.1",
+		"discord-api-types": "^0.37.88",
+		"jsbi": "^4.3.0",
+		"json-prune": "^1.1.0",
+		"pako": "~1.0.5"
+	},
+	"devDependencies": {
+		"bun-types": "^1.0.11"
+	}
 }

@@ -549,7 +549,7 @@ export class DiscordClientReady {
 		if (!config.client) throw Error("DiscordClient not initialized!");
 
 		// import only when needed
-		import("./lib/userSettings").then((a) => {
+		import("./lib/wrapped").then((a) => {
 			a.getGuildFoldersFromProto(ready.user_settings_proto).then((guildFolders) => {
 				this.guildFolders.set(guildFolders);
 			});
@@ -973,7 +973,7 @@ export class DiscordClientReady {
 
 		Gateway.on("t:user_settings_proto_update", (evt) => {
 			if (!evt.partial && evt.settings?.proto) {
-				import("./lib/userSettings").then((a) =>
+				import("./lib/wrapped").then((a) =>
 					a.getGuildFoldersFromProto(evt.settings.proto).then((guildFolders) => {
 						this.guildFolders.set(guildFolders);
 					})
