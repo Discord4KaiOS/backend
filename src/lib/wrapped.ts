@@ -1,9 +1,7 @@
 import * as Comlink from "comlink";
 import type { Exposed } from "./worker";
-// @ts-ignore
-import DiscordWorker from "./worker.ts?worker";
 
-const worker = new DiscordWorker();
+const worker = new Worker(new URL("./worker.ts", import.meta.url));
 
 const wrapped = Comlink.wrap<Exposed>(worker);
 
