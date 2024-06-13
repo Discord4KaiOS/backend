@@ -298,18 +298,30 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 
 		this.close();
 
+		const buffersToSend: ArrayBuffer[] = [];
+
+		const flushBuffersToSend = async () => {
+			if (buffersToSend.length && this.inflateInstance) {
+				for (let i = 0; i < buffersToSend.length; i++) {
+					const buff = buffersToSend[i];
+					await this.inflateInstance(buff);
+					console.log("buffer was received before inflateInstance was made");
+				}
+				buffersToSend.length = 0;
+			}
+		};
+
 		import("./lib/wrapped").then(async ({ createInflateInstance }) => {
 			this.inflateInstance = await createInflateInstance(
 				Comlink.proxy((data) => {
 					this.#handlePacket(data);
 				})
 			);
+			await flushBuffersToSend();
 		});
 
 		const ws = (this.ws = new WebSocket(this.streamURL));
 		ws.binaryType = "arraybuffer";
-
-		const buffersToSend: ArrayBuffer[] = [];
 
 		ws.addEventListener("message", async ({ data }: MessageEvent<ArrayBuffer>) => {
 			if (!("byteLength" in data)) {
@@ -320,15 +332,7 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 			if (!this.inflateInstance) {
 				buffersToSend.push(data);
 			} else {
-				if (buffersToSend.length) {
-					for (let i = 0; i < buffersToSend.length; i++) {
-						const buff = buffersToSend[i];
-						await this.inflateInstance(buff);
-						console.log("buffer was received before inflateInstance was made");
-					}
-					buffersToSend.length = 0;
-				}
-
+				await flushBuffersToSend();
 				await this.inflateInstance(data);
 			}
 		});
