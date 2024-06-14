@@ -298,50 +298,30 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 
 		this.close();
 
-		const buffersToSend: ArrayBuffer[] = [];
-
-		const flushBuffersToSend = async () => {
-			if (buffersToSend.length && this.inflateInstance) {
-				for (let i = 0; i < buffersToSend.length; i++) {
-					const buff = buffersToSend[i];
-					await this.inflateInstance(buff);
-					console.log("buffer was received before inflateInstance was made");
-				}
-				buffersToSend.length = 0;
-			}
-		};
-
 		import("./lib/wrapped").then(async ({ createInflateInstance }) => {
-			this.inflateInstance = await createInflateInstance(
+			const inflateInstance = (this.inflateInstance = await createInflateInstance(
 				Comlink.proxy((data) => {
 					this.#handlePacket(data);
 				})
-			);
-			await flushBuffersToSend();
-		});
+			));
 
-		const ws = (this.ws = new WebSocket(this.streamURL));
-		ws.binaryType = "arraybuffer";
-
-		ws.addEventListener("message", async ({ data }: MessageEvent<ArrayBuffer>) => {
-			if (!("byteLength" in data)) {
-				this.logger.err("Received non-arraybuffer data!", data)();
-				return;
-			}
-
-			if (!this.inflateInstance) {
-				buffersToSend.push(data);
-			} else {
-				await flushBuffersToSend();
-				await this.inflateInstance(data);
-			}
-		});
-		ws.addEventListener("open", () => this.logger.info("Sending Identity [OP 2]...")());
-		ws.addEventListener("close", () => {
-			this.ws = undefined;
-			this.close();
-			this.logger.err("Discord gateway closed!")();
-			this.emit("close");
+			const ws = (this.ws = new WebSocket(this.streamURL));
+			ws.binaryType = "arraybuffer";
+			ws.addEventListener("message", async ({ data }: MessageEvent<ArrayBuffer>) => {
+				if (!("byteLength" in data)) {
+					this.logger.err("Received non-arraybuffer data!", data)();
+					return;
+				}
+				if (!this.inflateInstance) return;
+				inflateInstance(data);
+			});
+			ws.addEventListener("open", () => this.logger.info("Sending Identity [OP 2]...")());
+			ws.addEventListener("close", () => {
+				this.ws = undefined;
+				this.close();
+				this.logger.err("Discord gateway closed!")();
+				this.emit("close");
+			});
 		});
 	}
 }
