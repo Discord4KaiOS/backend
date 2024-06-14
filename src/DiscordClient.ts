@@ -786,13 +786,6 @@ export class DiscordClientReady {
 			this.readStates.updateCount(channel_id, message_id, mention_count);
 		});
 
-		Gateway.on("t:message_create", (message) => {
-			// if current user sent a message to a channel, the readState count changes to 0
-			if (message.author.id === this.ready.user.id) {
-				this.readStates.updateCount(message.channel_id, message.id, 0);
-			}
-		});
-
 		const findChannel = (channel_id: string, guild_id?: string) => {
 			if (guild_id) {
 				const guild = this.guilds.get(guild_id);
@@ -850,6 +843,12 @@ export class DiscordClientReady {
 
 			if (mm instanceof DiscordDirectMessage) {
 				this.dms.sorted.refresh();
+			}
+
+			// if current user sent a message to a channel, the readState count changes to 0
+			if (m.author.id === this.ready.user.id) {
+				mm.$channel.readState.setState({ last_message_id: m.id, mention_count: 0 });
+				return;
 			}
 
 			if (mm.wouldPing()) {
