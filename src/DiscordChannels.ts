@@ -8,6 +8,7 @@ import type {
 	ThreadAutoArchiveDuration,
 	APIEmoji,
 	APIReaction,
+	APIUser,
 } from "discord-api-types/v10";
 
 import {
@@ -130,6 +131,13 @@ export class MessageReaction extends WritableStore<{
 	}
 
 	/**
+	 * deletes all reactions of this emoji
+	 */
+	deleteAll() {
+		return this.$message.reactions.deleteAllReactionEmoji(this.$.emoji);
+	}
+
+	/**
 	 *
 	 * @param me whether the reaction was added by me
 	 */
@@ -162,6 +170,18 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 
 	constructor(public $message: DiscordMessage<any>) {
 		super();
+	}
+
+	getReactions(emoji: APIEmoji | string, limit = 100, after?: string, type: 0 | 1 = 0) {
+		const message = this.$message;
+		const channel = this.$message.$channel;
+
+		return channel.Request.get<APIUser[]>(
+			`/channels/${channel.id}/messages/${message.id}/reactions/${emoji}`,
+			{
+				search: toVoid({ limit, after, type }),
+			}
+		);
 	}
 
 	refresh() {
