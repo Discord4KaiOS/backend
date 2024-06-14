@@ -242,6 +242,15 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 		return this.reaction("put", emoji, user);
 	}
 
+	canAddReaction() {
+		const channel = this.$message.$channel as DiscordGuildTextChannel | DiscordTextChannel;
+		const access = "roleAccess" in channel && channel.roleAccess();
+		if (access) {
+			return access.ADD_REACTIONS !== false;
+		}
+		return true;
+	}
+
 	removeReaction(emoji: APIEmoji | string, user = "@me") {
 		return this.reaction("delete", emoji, user);
 	}
@@ -320,6 +329,21 @@ export class DiscordMessage<
 		return this.$channel.Request.delete(`channels/${this.$channel.id}/messages/${this.id}`, {});
 	}
 
+	canDelete() {
+		const isSameUser = this.author.id === this.user_id;
+
+		if (isSameUser) return true;
+
+		const channel = this.$channel as DiscordGuildTextChannel | DiscordTextChannel<T>;
+
+		if ("roleAccess" in channel) {
+			const access = channel.roleAccess();
+			return access.MANAGE_MESSAGES === true;
+		}
+
+		return false;
+	}
+
 	pin(put = true) {
 		return this.$channel.Request[put ? "put" : "delete"](
 			`channels/${this.$channel.id}/pins/${this.id}`,
@@ -364,6 +388,10 @@ export class DiscordMessage<
 		return false;
 	}
 
+	canEdit() {
+		return this.isEditable();
+	}
+
 	reply(
 		content: string,
 		opts: Partial<CreateMessageParams> = {},
@@ -399,6 +427,10 @@ export class DiscordMessage<
 		return false;
 	}
 
+	canReply() {
+		return this.isRepliable();
+	}
+
 	wouldPing(...args: any) {
 		const userID = this.user_id;
 
@@ -413,21 +445,6 @@ export class DiscordMessage<
 		if (this.$guild && mention_roles) {
 			const roles = this.$guild.$users.get(userID)?.profiles.get(this.$guild.id)?.value.roles;
 			if (roles) return Boolean(mention_roles.some((r) => roles.includes(r)));
-		}
-
-		return false;
-	}
-
-	canDelete() {
-		const isSameUser = this.author.id === this.user_id;
-
-		if (isSameUser) return true;
-
-		const channel = this.$channel as DiscordGuildTextChannel | DiscordTextChannel<T>;
-
-		if ("roleAccess" in channel) {
-			const access = channel.roleAccess();
-			return access.MANAGE_MESSAGES === true;
 		}
 
 		return false;
