@@ -177,7 +177,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 		const channel = this.$message.$channel;
 
 		return channel.Request.get<APIUser[]>(
-			`/channels/${channel.id}/messages/${message.id}/reactions/${emoji}`,
+			`/channels/${channel.id}/messages/${message.id}/reactions/${emojiURI(emoji)}`,
 			{
 				search: toVoid({ limit, after, type }),
 			}
