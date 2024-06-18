@@ -36,6 +36,45 @@ export class CaptchaError extends ResponseError {
 	}
 }
 
+export class RateLimitError extends Error {
+	readonly start = performance.now();
+
+	retryAfter = 10;
+
+	constructor(public xhr: XMLHttpRequest) {
+		super("RateLimitError");
+
+		if (xhr.response?.retry_after) {
+			this.retryAfter = Math.ceil(xhr.response.retry_after) + 1;
+			return;
+		}
+
+		const fromHeader = xhr.getResponseHeader("Retry-After");
+		if (fromHeader) {
+			this.retryAfter = Math.ceil(Number(fromHeader)) + 1;
+			return;
+		}
+	}
+
+	private promise = null as Promise<void> | null;
+
+	wait() {
+		if (this.promise) return this.promise;
+
+		const now = performance.now();
+
+		if (now > this.start + this.retryAfter * 1000) {
+			this.promise = Promise.resolve();
+			return this.promise;
+		}
+
+		const time = this.start + this.retryAfter * 1000 - now;
+
+		this.promise = new Promise((resolve) => setTimeout(resolve, time));
+		return this.promise;
+	}
+}
+
 export class Response<T = any> {
 	response: () => Promise<T>;
 
@@ -72,6 +111,11 @@ export class Response<T = any> {
 						deffered.reject(e);
 						return;
 					}
+				}
+
+				if (xhr.status === 429) {
+					deffered.reject(new RateLimitError(xhr));
+					return;
 				}
 
 				deffered.reject(new ResponseError(xhr.status, xhr));
