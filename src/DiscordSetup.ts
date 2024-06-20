@@ -154,6 +154,8 @@ create a login error with this name
 
 	fingerprint = "";
 
+	request?: DiscordRequest;
+
 	async login(props: PropsSignIn): Promise<DiscordClient | MFA>;
 	async login(props: PropsToken): Promise<DiscordClient>;
 	async login(props: PropsSignIn | PropsToken) {
@@ -166,6 +168,7 @@ create a login error with this name
 		const config = props.config || {};
 
 		const req = new DiscordRequest(config);
+		this.request = req;
 		req.setup = this;
 
 		const fingerprintHeaders = shouldFingerPrint
@@ -267,6 +270,22 @@ create a login error with this name
 		}
 
 		return (this.result = new DiscordClient(req, loginResp.token, config));
+	}
+
+	logout() {
+		const req = this.request;
+		const token = this.request?.token;
+		if (token && req) {
+			return req.post("auth/logout", {
+				data: { provider: null, voip_provider: null },
+				headers: {
+					"X-Super-Properties": req.superProperties,
+					"X-Debug-Options": "bugReporterEnabled",
+				},
+			});
+		}
+
+		throw new Error("Apparently login didn't happen?");
 	}
 }
 
