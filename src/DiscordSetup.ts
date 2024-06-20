@@ -285,7 +285,7 @@ create a login error with this name
 			});
 		}
 
-		throw new Error("Apparently login didn't happen?");
+		return null;
 	}
 }
 
