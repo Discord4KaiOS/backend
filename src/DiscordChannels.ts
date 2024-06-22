@@ -895,7 +895,7 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 class PinnedMessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends Jar<
 	DiscordMessage<T>
 > {
-	constructor(public $channel: DiscordTextChannel<any>) {
+	constructor(public $channel: DiscordTextChannel<T>) {
 		super();
 	}
 
