@@ -46,6 +46,7 @@ import Logger from "./Logger";
 import ReadStateHandler, { DiscordReadState } from "./ReadStateHandler";
 import type { PreloadedUserSettings_GuildFolder } from "./lib/discord-protos";
 import { Writable, writable } from "./lib/stores";
+import DiscordGifPicker from "./DiscordGifPicker";
 
 class ServerProfilesJar extends Jar<DiscordServerProfile> {
 	constructor(public $user: DiscordUser) {
@@ -427,6 +428,7 @@ export class DiscordClientReady {
 	guildSettings: DiscordGuildSettingsJar;
 	readStates: ReadStateHandler;
 	presences = new PresencesJar();
+	gif: DiscordGifPicker;
 
 	close() {
 		this.Gateway.close();
@@ -547,6 +549,8 @@ export class DiscordClientReady {
 	) {
 		this.config = config;
 		if (!config.client) throw Error("DiscordClient not initialized!");
+
+		this.gif = new DiscordGifPicker(Request);
 
 		// import only when needed
 		import("./lib/wrapped").then((a) => {

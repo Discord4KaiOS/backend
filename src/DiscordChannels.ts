@@ -343,6 +343,10 @@ export class DiscordMessage<
 		$.reactions?.forEach((a) => {
 			this.reactions.insert(a);
 		});
+
+		if (this.$.pinned) {
+			this.$channel.pins.appendMessage(this);
+		}
 	}
 
 	delete() {
@@ -550,6 +554,10 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 			})
 		);
 
+		if (!message.pinned) {
+			this.$channel.pins.remove(message.id!);
+		}
+
 		return has;
 	}
 
@@ -574,6 +582,50 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 		return m;
 	}
 
+	/**
+	 * add Message to the jar
+	 */
+	addMessage(m: APIMessage) {
+		const has = this.get(m.id);
+
+		if (has) {
+			// if message is already present in the jar, update it
+			has.shallowSet({
+				content: m.content,
+				edited_timestamp: m.edited_timestamp,
+				pinned: m.pinned,
+			});
+
+			return has;
+		} else {
+			const message = this.newMessage(m);
+
+			// if message is a reply,
+			// then add reference to jar without converging
+			if (m.referenced_message) {
+				const ref = m.referenced_message;
+				const has = this.get(ref.id);
+				if (has) {
+					has.shallowSet({
+						content: ref.content,
+						edited_timestamp: ref.edited_timestamp,
+						pinned: ref.pinned,
+					});
+					this.updateWaiting(has);
+				} else {
+					const m = this.newMessage(ref);
+					this.set(m.id, m);
+					this.updateWaiting(m);
+				}
+			}
+
+			this.set(m.id, message);
+			this.updateWaiting(message);
+
+			return message;
+		}
+	}
+
 	converge(messages: APIMessage[]) {
 		// filtered only contains messages not found in the newer batch
 		const filtered = this.state.value.filter((m) => {
@@ -585,44 +637,8 @@ export class MessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelP
 		});
 
 		messages.forEach((m) => {
-			const has = this.get(m.id);
-
-			if (has) {
-				// if message is already present in the jar, update it
-				has.shallowSet({
-					content: m.content,
-					edited_timestamp: m.edited_timestamp,
-					pinned: m.pinned,
-				});
-
-				filtered.push(has);
-			} else {
-				const message = this.newMessage(m);
-
-				// if message is a reply,
-				// then add reference to jar without converging
-				if (m.referenced_message) {
-					const ref = m.referenced_message;
-					const has = this.get(ref.id);
-					if (has) {
-						has.shallowSet({
-							content: ref.content,
-							edited_timestamp: ref.edited_timestamp,
-							pinned: ref.pinned,
-						});
-						this.updateWaiting(has);
-					} else {
-						const m = this.newMessage(ref);
-						this.set(m.id, m);
-						this.updateWaiting(m);
-					}
-				}
-
-				this.set(m.id, message);
-				this.updateWaiting(message);
-
-				filtered.push(message);
-			}
+			const message = this.addMessage(m);
+			filtered.push(message);
 		});
 
 		// sort by ID, or maybe by timestamp?
@@ -876,6 +892,66 @@ class AttachmentUploadProgress extends EventEmitter<{ abort: [] }> {
 	}
 }
 
+class PinnedMessagesJar<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends Jar<
+	DiscordMessage<T>
+> {
+	constructor(public $channel: DiscordTextChannel<any>) {
+		super();
+	}
+
+	state = new WritableStore<DiscordMessage<T>[]>([]);
+
+	hasLoaded = false;
+	isLoading = false;
+
+	async load() {
+		if (this.hasLoaded || this.isLoading) return;
+		this.isLoading = true;
+		const messages = await this.$channel.getPinnedMessages().response();
+		this.hasLoaded = true;
+		const pinnedMessages = messages.map((m) => {
+			return this.$channel.messages.addMessage(m);
+		});
+
+		this.state.set(pinnedMessages);
+		pinnedMessages.forEach((m) => this.set(m.id, m));
+	}
+
+	sync() {
+		this.state.set(this.list());
+	}
+
+	remove(id: Snowflake) {
+		const has = this.get(id);
+		if (!has) return;
+		this.delete(id);
+		this.sync();
+	}
+
+	append(id: Snowflake) {
+		if (this.get(id)) return;
+
+		const has = this.$channel.messages.get(id);
+		if (has) {
+			this.set(id, has);
+			this.sync();
+		}
+
+		const m = this.$channel.messages.waitForMessage(id);
+		const unsub = m.subscribe((m) => {
+			if (!m) return;
+			this.set(id, m);
+			this.sync();
+			unsub();
+		});
+	}
+
+	appendMessage(m: DiscordMessage<T>) {
+		this.set(m.id, m);
+		this.sync();
+	}
+}
+
 abstract class DiscordTextChannel<
 	T extends DiscordTextChannelProps = DiscordTextChannelProps
 > extends DiscordChannelBase<T> {
@@ -888,6 +964,7 @@ abstract class DiscordTextChannel<
 	abstract $users: UsersJar;
 	abstract $client: DiscordClientReady;
 	messages = new MessagesJar<T>(this);
+	pins = new PinnedMessagesJar<T>(this);
 
 	typingState = new TypingState<T>(this);
 
@@ -947,6 +1024,10 @@ abstract class DiscordTextChannel<
 
 	getMessages(query: { limit?: number; before?: string; after?: string; around?: string }) {
 		return this.Request.get<APIMessage[]>(`channels/${this.id}/messages?` + toQuery(query), {});
+	}
+
+	getPinnedMessages() {
+		return this.Request.get<APIMessage[]>(`channels/${this.id}/pins`, {});
 	}
 
 	ack() {
