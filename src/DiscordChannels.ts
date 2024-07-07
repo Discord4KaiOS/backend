@@ -36,9 +36,10 @@ type TextChannelType =
 import { DiscordGuild } from "./DiscordGuild";
 import EventEmitter from "./lib/EventEmitter";
 import Deferred from "./lib/Deffered";
+import { DiscordSnowflake } from "./lib/Snowflake";
 
 export function generateNonce() {
-	return String(Date.now() * 512 * 1024);
+	return DiscordSnowflake.generate().toString();
 }
 
 interface DiscordChannelBaseProps {

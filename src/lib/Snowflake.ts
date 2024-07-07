@@ -9,6 +9,12 @@ const ProcessIdSymbol = Symbol("@sapphire/snowflake.processId");
 const WorkerIdSymbol = Symbol("@sapphire/snowflake.workerId");
 
 const BigInt = JSBI.BigInt;
+const bitwiseAnd = JSBI.bitwiseAnd;
+const subtract = JSBI.subtract;
+const bitwiseOr = JSBI.bitwiseOr;
+const leftShift = JSBI.leftShift;
+const add = JSBI.add;
+const signedRightShift = JSBI.signedRightShift;
 
 /**
  * The maximum value the `workerId` field accepts in snowflakes.
@@ -55,19 +61,19 @@ export class Snowflake {
 	 * Internal incrementor for generating snowflakes
 	 * @internal
 	 */
-	private [IncrementSymbol] = JSBI.BigInt(0);
+	private [IncrementSymbol] = BigInt(0);
 
 	/**
 	 * The process ID that will be used by default in the generate method
 	 * @internal
 	 */
-	private [ProcessIdSymbol] = JSBI.BigInt(1);
+	private [ProcessIdSymbol] = BigInt(1);
 
 	/**
 	 * The worker ID that will be used by default in the generate method
 	 * @internal
 	 */
-	private [WorkerIdSymbol] = JSBI.BigInt(0);
+	private [WorkerIdSymbol] = BigInt(0);
 
 	/**
 	 * @param epoch the epoch to use
@@ -95,7 +101,7 @@ export class Snowflake {
 	 * @param value The new value, will be coerced to BigInt and masked with `0b11111n`
 	 */
 	public set processId(value: number | JSBI) {
-		this[ProcessIdSymbol] = JSBI.bitwiseAnd(BigInt(value), MaximumProcessId);
+		this[ProcessIdSymbol] = bitwiseAnd(BigInt(value), MaximumProcessId);
 	}
 
 	/**
@@ -110,7 +116,7 @@ export class Snowflake {
 	 * @param value The new value, will be coerced to BigInt and masked with `0b11111n`
 	 */
 	public set workerId(value: number | JSBI) {
-		this[WorkerIdSymbol] = JSBI.bitwiseAnd(BigInt(value), MaximumWorkerId);
+		this[WorkerIdSymbol] = bitwiseAnd(BigInt(value), MaximumWorkerId);
 	}
 
 	/**
@@ -141,25 +147,25 @@ export class Snowflake {
 
 		if (!(increment instanceof JSBI)) {
 			increment = this[IncrementSymbol];
-			this[IncrementSymbol] = JSBI.bitwiseAnd(JSBI.add(increment, BigInt(1)), MaximumIncrement);
+			this[IncrementSymbol] = bitwiseAnd(add(increment, BigInt(1)), MaximumIncrement);
 		}
 
 		// const e= (((1 | 2) | 3) | 4);
 
 		// timestamp, workerId, processId, increment
-		return JSBI.bitwiseOr(
-			JSBI.bitwiseOr(
-				JSBI.bitwiseOr(
+		return bitwiseOr(
+			bitwiseOr(
+				bitwiseOr(
 					// 1
-					JSBI.leftShift(JSBI.subtract(timestamp, this[EpochSymbol]), BigInt(22)),
+					leftShift(subtract(timestamp, this[EpochSymbol]), BigInt(22)),
 					// 2
-					JSBI.leftShift(JSBI.bitwiseAnd(workerId, MaximumWorkerId), BigInt(17))
+					leftShift(bitwiseAnd(workerId, MaximumWorkerId), BigInt(17))
 				),
 				// 3
-				JSBI.leftShift(JSBI.bitwiseAnd(processId, MaximumProcessId), BigInt(12))
+				leftShift(bitwiseAnd(processId, MaximumProcessId), BigInt(12))
 			),
 			// 4
-			JSBI.bitwiseAnd(increment, MaximumIncrement)
+			bitwiseAnd(increment, MaximumIncrement)
 		);
 	}
 
@@ -178,10 +184,10 @@ export class Snowflake {
 		const epoch = this[EpochSymbol];
 		return {
 			id: bigIntId,
-			timestamp: JSBI.add(JSBI.signedRightShift(bigIntId, BigInt(22)), epoch),
-			workerId: (bigIntId >> BigInt(17)) & MaximumWorkerId,
-			processId: (bigIntId >> BigInt(12)) & MaximumProcessId,
-			increment: bigIntId & MaximumIncrement,
+			timestamp: add(signedRightShift(bigIntId, BigInt(22)), epoch),
+			workerId: bitwiseAnd(signedRightShift(bigIntId, BigInt(17)), MaximumWorkerId),
+			processId: bitwiseAnd(signedRightShift(bigIntId, BigInt(12)), MaximumProcessId),
+			increment: bitwiseAnd(bigIntId, MaximumIncrement),
 			epoch,
 		};
 	}
@@ -191,8 +197,8 @@ export class Snowflake {
 	 * @param id The snowflake to get the timestamp value from.
 	 * @returns The UNIX timestamp that is stored in `id`.
 	 */
-	public timestampFrom(id: string | bigint): number {
-		return Number((BigInt(id) >> 22n) + this[EpochSymbol]);
+	public timestampFrom(id: string | JSBI): number {
+		return JSBI.toNumber(add(signedRightShift(BigInt(id), BigInt(22)), this[EpochSymbol]));
 	}
 
 	/**
@@ -214,19 +220,19 @@ export class Snowflake {
 	 * // → ['1056191128120082432', '737141877803057244', '254360814063058944'];
 	 * ```
 	 */
-	public static compare(a: string | bigint, b: string | bigint): -1 | 0 | 1 {
+	public static compare(a: string | JSBI, b: string | JSBI): -1 | 0 | 1 {
 		const typeA = typeof a;
 		return typeA === typeof b
 			? typeA === "string"
 				? cmpString(a as string, b as string)
-				: cmpBigInt(a as bigint, b as bigint)
+				: cmpBigInt(a as JSBI, b as JSBI)
 			: cmpBigInt(BigInt(a), BigInt(b));
 	}
 }
 
 /** @internal */
-function cmpBigInt(a: bigint, b: bigint) {
-	return a === b ? 0 : a < b ? -1 : 1;
+function cmpBigInt(a: JSBI, b: JSBI) {
+	return JSBI.equal(a, b) ? 0 : JSBI.lessThan(a, b) ? -1 : 1;
 }
 
 /** @internal */
@@ -298,3 +304,10 @@ export interface DeconstructedSnowflake {
 	 */
 	epoch: JSBI;
 }
+
+/**
+ * A class for parsing snowflake ids using Discord's snowflake epoch
+ *
+ * Which is 2015-01-01 at 00:00:00.000 UTC+0, {@linkplain https://discord.com/developers/docs/reference#snowflakes}
+ */
+export const DiscordSnowflake = new Snowflake(BigInt(1420070400000));
