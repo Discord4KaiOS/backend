@@ -133,23 +133,33 @@ export class Snowflake {
 	}: SnowflakeGenerateOptions = {}) {
 		if (timestamp instanceof Date) timestamp = BigInt(timestamp.getTime());
 		else if (typeof timestamp === "number") timestamp = BigInt(timestamp);
-		else if (typeof timestamp !== "bigint") {
+		else if (!(timestamp instanceof JSBI)) {
 			throw new TypeError(
 				`"timestamp" argument must be a number, bigint, or Date (received ${typeof timestamp})`
 			);
 		}
 
-		if (typeof increment !== "bigint") {
+		if (!(increment instanceof JSBI)) {
 			increment = this[IncrementSymbol];
 			this[IncrementSymbol] = JSBI.bitwiseAnd(JSBI.add(increment, BigInt(1)), MaximumIncrement);
 		}
 
+		// const e= (((1 | 2) | 3) | 4);
+
 		// timestamp, workerId, processId, increment
-		return (
-			JSBI.leftShift(JSBI.subtract(timestamp, this[EpochSymbol]), BigInt(22)) |
-			((workerId & MaximumWorkerId) << 17n) |
-			((processId & MaximumProcessId) << 12n) |
-			(increment & MaximumIncrement)
+		return JSBI.bitwiseOr(
+			JSBI.bitwiseOr(
+				JSBI.bitwiseOr(
+					// 1
+					JSBI.leftShift(JSBI.subtract(timestamp, this[EpochSymbol]), BigInt(22)),
+					// 2
+					JSBI.leftShift(JSBI.bitwiseAnd(workerId, MaximumWorkerId), BigInt(17))
+				),
+				// 3
+				JSBI.leftShift(JSBI.bitwiseAnd(processId, MaximumProcessId), BigInt(12))
+			),
+			// 4
+			JSBI.bitwiseAnd(increment, MaximumIncrement)
 		);
 	}
 
@@ -163,14 +173,14 @@ export class Snowflake {
 	 * const snowflake = new Snowflake(epoch).deconstruct('3971046231244935168');
 	 * ```
 	 */
-	public deconstruct(id: string | bigint): DeconstructedSnowflake {
+	public deconstruct(id: string | JSBI): DeconstructedSnowflake {
 		const bigIntId = BigInt(id);
 		const epoch = this[EpochSymbol];
 		return {
 			id: bigIntId,
-			timestamp: (bigIntId >> 22n) + epoch,
-			workerId: (bigIntId >> 17n) & MaximumWorkerId,
-			processId: (bigIntId >> 12n) & MaximumProcessId,
+			timestamp: JSBI.add(JSBI.signedRightShift(bigIntId, BigInt(22)), epoch),
+			workerId: (bigIntId >> BigInt(17)) & MaximumWorkerId,
+			processId: (bigIntId >> BigInt(12)) & MaximumProcessId,
 			increment: bigIntId & MaximumIncrement,
 			epoch,
 		};
@@ -261,30 +271,30 @@ export interface DeconstructedSnowflake {
 	/**
 	 * The id in BigInt form
 	 */
-	id: bigint;
+	id: JSBI;
 
 	/**
 	 * The timestamp stored in the snowflake
 	 */
-	timestamp: bigint;
+	timestamp: JSBI;
 
 	/**
 	 * The worker id stored in the snowflake
 	 */
-	workerId: bigint;
+	workerId: JSBI;
 
 	/**
 	 * The process id stored in the snowflake
 	 */
-	processId: bigint;
+	processId: JSBI;
 
 	/**
 	 * The increment stored in the snowflake
 	 */
-	increment: bigint;
+	increment: JSBI;
 
 	/**
 	 * The epoch to use in the snowflake
 	 */
-	epoch: bigint;
+	epoch: JSBI;
 }
