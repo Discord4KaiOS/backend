@@ -87,12 +87,7 @@ interface Cache {}
 export class CaptchaEvent {
 	readonly type = "captcha";
 
-	/**
-	 * hidden
-	 * @internal
-	 * @deprecated
-	 */
-	result: string | Promise<string> | null = null;
+	protected result: string | Promise<string> | null = null;
 
 	constructor(readonly sitekey: string, readonly service: string) {}
 

@@ -266,7 +266,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 		const channel = this.$message.$channel as DiscordGuildTextChannel | DiscordTextChannel;
 		const access = "roleAccess" in channel && channel.roleAccess();
 		if (access) {
-			return access.ADD_REACTIONS !== false;
+			return access.AddReactions !== false;
 		}
 		return true;
 	}
@@ -362,7 +362,7 @@ export class DiscordMessage<
 
 		if ("roleAccess" in channel) {
 			const access = channel.roleAccess();
-			return access.MANAGE_MESSAGES === true;
+			return access.ManageMessages === true;
 		}
 
 		return false;
@@ -385,7 +385,7 @@ export class DiscordMessage<
 		if ("roleAccess" in channel) {
 			const access = channel.roleAccess();
 			// you can't pin if you can't manage messages
-			if (access.MANAGE_MESSAGES !== true) return false;
+			if (access.ManageMessages !== true) return false;
 		}
 
 		// you can pretty much pin anywhere
@@ -442,7 +442,7 @@ export class DiscordMessage<
 		if ("roleAccess" in channel) {
 			const access = channel.roleAccess();
 			// you can't reply if you can't send messages
-			if (access.SEND_MESSAGES === false) return false;
+			if (access.SendMessages === false) return false;
 		}
 
 		// you can only reply if message is default or a reply

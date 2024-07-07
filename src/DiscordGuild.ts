@@ -6,40 +6,60 @@ import { ClientAPIGuildMember, ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
 import Gateway from "./DiscordGateway";
+import JSBI from "jsbi";
 
 export const PermissionFlagsBits = {
-	CREATE_INSTANT_INVITE: 1,
-	KICK_MEMBERS: 2,
-	BAN_MEMBERS: 4,
-	ADMINISTRATOR: 8,
-	MANAGE_CHANNELS: 16,
-	MANAGE_GUILD: 32,
-	ADD_REACTIONS: 64,
-	VIEW_AUDIT_LOG: 128,
-	PRIORITY_SPEAKER: 256,
-	STREAM: 512,
-	VIEW_CHANNEL: 1024,
-	SEND_MESSAGES: 2048,
-	SEND_TTS_MESSAGES: 4096,
-	MANAGE_MESSAGES: 8192,
-	EMBED_LINKS: 16384,
-	ATTACH_FILES: 32768,
-	READ_MESSAGE_HISTORY: 65536,
-	MENTION_EVERYONE: 131072,
-	USE_EXTERNAL_EMOJIS: 262144,
-	VIEW_GUILD_INSIGHTS: 524288,
-	CONNECT: 1048576,
-	SPEAK: 2097152,
-	MUTE_MEMBERS: 4194304,
-	DEAFEN_MEMBERS: 8388608,
-	MOVE_MEMBERS: 16777216,
-	USE_VAD: 33554432,
-	CHANGE_NICKNAME: 67108864,
-	MANAGE_NICKNAMES: 134217728,
-	MANAGE_ROLES: 268435456,
-	MANAGE_WEBHOOKS: 536870912,
-	MANAGE_EMOJIS: 1073741824,
-};
+	CreateInstantInvite: JSBI.BigInt(1),
+	KickMembers: JSBI.BigInt(2),
+	BanMembers: JSBI.BigInt(4),
+	Administrator: JSBI.BigInt(8),
+	ManageChannels: JSBI.BigInt(16),
+	ManageGuild: JSBI.BigInt(32),
+	AddReactions: JSBI.BigInt(64),
+	ViewAuditLog: JSBI.BigInt(128),
+	PrioritySpeaker: JSBI.BigInt(256),
+	Stream: JSBI.BigInt(512),
+	ViewChannel: JSBI.BigInt(1024),
+	SendMessages: JSBI.BigInt(2048),
+	SendTTSMessages: JSBI.BigInt(4096),
+	ManageMessages: JSBI.BigInt(8192),
+	EmbedLinks: JSBI.BigInt(16384),
+	AttachFiles: JSBI.BigInt(32768),
+	ReadMessageHistory: JSBI.BigInt(65536),
+	MentionEveryone: JSBI.BigInt(131072),
+	UseExternalEmojis: JSBI.BigInt(262144),
+	ViewGuildInsights: JSBI.BigInt(524288),
+	Connect: JSBI.BigInt(1048576),
+	Speak: JSBI.BigInt(2097152),
+	MuteMembers: JSBI.BigInt(4194304),
+	DeafenMembers: JSBI.BigInt(8388608),
+	MoveMembers: JSBI.BigInt(16777216),
+	UseVAD: JSBI.BigInt(33554432),
+	ChangeNickname: JSBI.BigInt(67108864),
+	ManageNicknames: JSBI.BigInt(134217728),
+	ManageRoles: JSBI.BigInt(268435456),
+	ManageWebhooks: JSBI.BigInt(536870912),
+	ManageEmojisAndStickers: JSBI.BigInt(1073741824),
+	ManageGuildExpressions: JSBI.BigInt(1073741824),
+	UseApplicationCommands: JSBI.BigInt(2147483648),
+	RequestToSpeak: JSBI.BigInt(4294967296),
+	ManageEvents: JSBI.BigInt(8589934592),
+	ManageThreads: JSBI.BigInt(17179869184),
+	CreatePublicThreads: JSBI.BigInt(34359738368),
+	CreatePrivateThreads: JSBI.BigInt(68719476736),
+	UseExternalStickers: JSBI.BigInt(137438953472),
+	SendMessagesInThreads: JSBI.BigInt(274877906944),
+	UseEmbeddedActivities: JSBI.BigInt(549755813888),
+	ModerateMembers: JSBI.BigInt(1099511627776),
+	ViewCreatorMonetizationAnalytics: JSBI.BigInt(2199023255552),
+	UseSoundboard: JSBI.BigInt(4398046511104),
+	CreateGuildExpressions: JSBI.BigInt(8796093022208),
+	CreateEvents: JSBI.BigInt(17592186044416),
+	UseExternalSounds: JSBI.BigInt(35184372088832),
+	SendVoiceMessages: JSBI.BigInt(70368744177664),
+	SendPolls: JSBI.BigInt(562949953421312),
+	UseExternalApps: JSBI.BigInt(1125899906842624),
+} as const;
 
 export class DiscordServerProfile extends WritableStore<
 	Pick<
@@ -120,7 +140,7 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 		list.forEach((e) => {
 			if (!("readState" in e)) return;
 
-			if (this.forced.has(e.id) || includeHidden || e.roleAccess().VIEW_CHANNEL !== false) {
+			if (this.forced.has(e.id) || includeHidden || e.roleAccess().ViewChannel !== false) {
 				switch (e.type) {
 					case ChannelType.GuildText:
 					case ChannelType.GuildAnnouncement:
@@ -234,13 +254,16 @@ export class DiscordGuild extends WritableStore<
 				})
 				.map((o) => o.permissions)
 				.forEach((perms) => {
+					const _perms = JSBI.BigInt(perms);
+
 					Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
-						if ((num & +perms) === num) obj[perm as keyof typeof PermissionFlagsBits] = true;
+						if (JSBI.equal(JSBI.bitwiseAnd(num, _perms), num))
+							obj[perm as keyof typeof PermissionFlagsBits] = true;
 					});
 				});
 		}
 
-		if (obj.ADMINISTRATOR === true || isOwner) {
+		if (obj.Administrator === true || isOwner) {
 			Object.keys(PermissionFlagsBits).forEach((perm) => {
 				obj[perm as keyof typeof PermissionFlagsBits] = true;
 			});
@@ -261,8 +284,13 @@ export class DiscordGuild extends WritableStore<
 		_overwrites.forEach((o) => {
 			if (profileRoles.includes(o.id)) {
 				Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
-					if ((+o.deny & num) === num) obj[perm as keyof typeof PermissionFlagsBits] = false;
-					if ((+o.allow & num) === num) obj[perm as keyof typeof PermissionFlagsBits] = true;
+					const _deny = JSBI.BigInt(o.deny);
+					const _allow = JSBI.BigInt(o.allow);
+
+					if (JSBI.equal(JSBI.bitwiseAnd(_deny, num), num))
+						obj[perm as keyof typeof PermissionFlagsBits] = false;
+					if (JSBI.equal(JSBI.bitwiseAnd(_allow, num), num))
+						obj[perm as keyof typeof PermissionFlagsBits] = true;
 				});
 			}
 		});

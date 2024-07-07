@@ -92,6 +92,7 @@ export class Response<T = any> {
 					const c_evt = new CaptchaEvent(response.captcha_sitekey, response.captcha_service);
 					context.self.setup?.emit("captcha", c_evt);
 					try {
+						// @ts-ignore
 						const result = await c_evt.result;
 						if (result === null) {
 							throw new CaptchaError(xhr.status, xhr);
@@ -176,6 +177,8 @@ function fullURL(path = "/") {
 	return `${base}/api/v9/${path}`;
 }
 
+const _string_superProperties = btoa(JSON.stringify(SuperProperties));
+
 export default class DiscordRequest {
 	token: string | undefined;
 	superProperties: string;
@@ -192,7 +195,7 @@ export default class DiscordRequest {
 		// @ts-ignore: should work
 		this.delete = this.request.bind(this, "delete");
 
-		this.superProperties = btoa(JSON.stringify(SuperProperties));
+		this.superProperties = _string_superProperties;
 	}
 
 	post<T = any>(url: string, props: RequestProps) {
@@ -223,6 +226,9 @@ export default class DiscordRequest {
 			authorization: this.token || null,
 			// seems like mozAnon doesn't work on KaiOS v3
 			Origin: "https://discord.com",
+			"User-Agent": SuperProperties.browser_user_agent,
+			Referer: "https://discord.com",
+			"X-Debug-Options": "bugReporterEnabled",
 		};
 
 		if (props.headers) {

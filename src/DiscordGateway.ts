@@ -164,8 +164,9 @@ export const SuperProperties = {
 	referrer_current: "",
 	referring_domain_current: "",
 	release_channel: "stable",
-	client_build_number: 259501,
+	client_build_number: 307392,
 	client_event_source: null,
+	design_id: 0,
 };
 
 export default class Gateway extends EventEmitter<GatewayEventsMap> {
