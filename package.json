@@ -1,16 +1,16 @@
 {
 	"name": "discord",
 	"private": true,
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"type": "module",
 	"scripts": {
 		"dev": "bun --hot --inspect-wait test.tsx"
 	},
 	"dependencies": {
-		"@protobuf-ts/runtime": "^2.9.3",
+		"@protobuf-ts/runtime": "^2.9.4",
 		"@types/pako": "~1.0.5",
 		"comlink": "^4.4.1",
-		"discord-api-types": "^0.37.88",
+		"discord-api-types": "^0.37.92",
 		"jsbi": "^4.3.0",
 		"json-prune": "^1.1.0",
 		"pako": "~1.0.5"
