@@ -229,6 +229,7 @@ export default class DiscordRequest {
 			"User-Agent": SuperProperties.browser_user_agent,
 			Referer: "https://discord.com",
 			"X-Debug-Options": "bugReporterEnabled",
+			"X-Super-Properties": this.superProperties,
 		};
 
 		if (props.headers) {
