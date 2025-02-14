@@ -6,59 +6,59 @@ import { ClientAPIGuildMember, ClientChannel, ClientGuild } from "./lib/types";
 import DiscordRequest from "./DiscordRequest";
 import Logger from "./Logger";
 import Gateway from "./DiscordGateway";
-import JSBI from "jsbi";
+import BigInteger from "./lib/bigint/BigInteger";
 
 export const PermissionFlagsBits = {
-	CreateInstantInvite: JSBI.BigInt(1),
-	KickMembers: JSBI.BigInt(2),
-	BanMembers: JSBI.BigInt(4),
-	Administrator: JSBI.BigInt(8),
-	ManageChannels: JSBI.BigInt(16),
-	ManageGuild: JSBI.BigInt(32),
-	AddReactions: JSBI.BigInt(64),
-	ViewAuditLog: JSBI.BigInt(128),
-	PrioritySpeaker: JSBI.BigInt(256),
-	Stream: JSBI.BigInt(512),
-	ViewChannel: JSBI.BigInt(1024),
-	SendMessages: JSBI.BigInt(2048),
-	SendTTSMessages: JSBI.BigInt(4096),
-	ManageMessages: JSBI.BigInt(8192),
-	EmbedLinks: JSBI.BigInt(16384),
-	AttachFiles: JSBI.BigInt(32768),
-	ReadMessageHistory: JSBI.BigInt(65536),
-	MentionEveryone: JSBI.BigInt(131072),
-	UseExternalEmojis: JSBI.BigInt(262144),
-	ViewGuildInsights: JSBI.BigInt(524288),
-	Connect: JSBI.BigInt(1048576),
-	Speak: JSBI.BigInt(2097152),
-	MuteMembers: JSBI.BigInt(4194304),
-	DeafenMembers: JSBI.BigInt(8388608),
-	MoveMembers: JSBI.BigInt(16777216),
-	UseVAD: JSBI.BigInt(33554432),
-	ChangeNickname: JSBI.BigInt(67108864),
-	ManageNicknames: JSBI.BigInt(134217728),
-	ManageRoles: JSBI.BigInt(268435456),
-	ManageWebhooks: JSBI.BigInt(536870912),
-	ManageEmojisAndStickers: JSBI.BigInt(1073741824),
-	ManageGuildExpressions: JSBI.BigInt(1073741824),
-	UseApplicationCommands: JSBI.BigInt(2147483648),
-	RequestToSpeak: JSBI.BigInt(4294967296),
-	ManageEvents: JSBI.BigInt(8589934592),
-	ManageThreads: JSBI.BigInt(17179869184),
-	CreatePublicThreads: JSBI.BigInt(34359738368),
-	CreatePrivateThreads: JSBI.BigInt(68719476736),
-	UseExternalStickers: JSBI.BigInt(137438953472),
-	SendMessagesInThreads: JSBI.BigInt(274877906944),
-	UseEmbeddedActivities: JSBI.BigInt(549755813888),
-	ModerateMembers: JSBI.BigInt(1099511627776),
-	ViewCreatorMonetizationAnalytics: JSBI.BigInt(2199023255552),
-	UseSoundboard: JSBI.BigInt(4398046511104),
-	CreateGuildExpressions: JSBI.BigInt(8796093022208),
-	CreateEvents: JSBI.BigInt(17592186044416),
-	UseExternalSounds: JSBI.BigInt(35184372088832),
-	SendVoiceMessages: JSBI.BigInt(70368744177664),
-	SendPolls: JSBI.BigInt(562949953421312),
-	UseExternalApps: JSBI.BigInt(1125899906842624),
+	CreateInstantInvite: BigInteger.BigInt(1),
+	KickMembers: BigInteger.BigInt(2),
+	BanMembers: BigInteger.BigInt(4),
+	Administrator: BigInteger.BigInt(8),
+	ManageChannels: BigInteger.BigInt(16),
+	ManageGuild: BigInteger.BigInt(32),
+	AddReactions: BigInteger.BigInt(64),
+	ViewAuditLog: BigInteger.BigInt(128),
+	PrioritySpeaker: BigInteger.BigInt(256),
+	Stream: BigInteger.BigInt(512),
+	ViewChannel: BigInteger.BigInt(1024),
+	SendMessages: BigInteger.BigInt(2048),
+	SendTTSMessages: BigInteger.BigInt(4096),
+	ManageMessages: BigInteger.BigInt(8192),
+	EmbedLinks: BigInteger.BigInt(16384),
+	AttachFiles: BigInteger.BigInt(32768),
+	ReadMessageHistory: BigInteger.BigInt(65536),
+	MentionEveryone: BigInteger.BigInt(131072),
+	UseExternalEmojis: BigInteger.BigInt(262144),
+	ViewGuildInsights: BigInteger.BigInt(524288),
+	Connect: BigInteger.BigInt(1048576),
+	Speak: BigInteger.BigInt(2097152),
+	MuteMembers: BigInteger.BigInt(4194304),
+	DeafenMembers: BigInteger.BigInt(8388608),
+	MoveMembers: BigInteger.BigInt(16777216),
+	UseVAD: BigInteger.BigInt(33554432),
+	ChangeNickname: BigInteger.BigInt(67108864),
+	ManageNicknames: BigInteger.BigInt(134217728),
+	ManageRoles: BigInteger.BigInt(268435456),
+	ManageWebhooks: BigInteger.BigInt(536870912),
+	ManageEmojisAndStickers: BigInteger.BigInt(1073741824),
+	ManageGuildExpressions: BigInteger.BigInt(1073741824),
+	UseApplicationCommands: BigInteger.BigInt(2147483648),
+	RequestToSpeak: BigInteger.BigInt(4294967296),
+	ManageEvents: BigInteger.BigInt(8589934592),
+	ManageThreads: BigInteger.BigInt(17179869184),
+	CreatePublicThreads: BigInteger.BigInt(34359738368),
+	CreatePrivateThreads: BigInteger.BigInt(68719476736),
+	UseExternalStickers: BigInteger.BigInt(137438953472),
+	SendMessagesInThreads: BigInteger.BigInt(274877906944),
+	UseEmbeddedActivities: BigInteger.BigInt(549755813888),
+	ModerateMembers: BigInteger.BigInt(1099511627776),
+	ViewCreatorMonetizationAnalytics: BigInteger.BigInt(2199023255552),
+	UseSoundboard: BigInteger.BigInt(4398046511104),
+	CreateGuildExpressions: BigInteger.BigInt(8796093022208),
+	CreateEvents: BigInteger.BigInt(17592186044416),
+	UseExternalSounds: BigInteger.BigInt(35184372088832),
+	SendVoiceMessages: BigInteger.BigInt(70368744177664),
+	SendPolls: BigInteger.BigInt(562949953421312),
+	UseExternalApps: BigInteger.BigInt(1125899906842624),
 } as const;
 
 export class DiscordServerProfile extends WritableStore<
@@ -75,11 +75,7 @@ export class DiscordServerProfile extends WritableStore<
 		| "bio"
 	>
 > {
-	constructor(
-		public $: ClientAPIGuildMember,
-		public $guild: DiscordGuild,
-		public user: DiscordUser
-	) {
+	constructor(public $: ClientAPIGuildMember, public $guild: DiscordGuild, public user: DiscordUser) {
 		super($);
 	}
 }
@@ -116,15 +112,13 @@ class ChannelsJar extends Jar<ChannelsJarItems> {
 		/**
 		 * TODO: implement experimental favorite category
 		 */
-		const implementExperimentalFavoriteCategory =
-			this.guild?.config?.experimental_favorite_channels || false;
+		const implementExperimentalFavoriteCategory = this.guild?.config?.experimental_favorite_channels || false;
 
 		const favorites: ChannelsJarItems[] = [];
 
 		const list = this.list();
 
-		const position = (a: ChannelsJarItems, b: ChannelsJarItems) =>
-			a?.value.position - b?.value.position;
+		const position = (a: ChannelsJarItems, b: ChannelsJarItems) => a?.value.position - b?.value.position;
 
 		list.sort(position);
 
@@ -234,10 +228,16 @@ export class DiscordGuild extends WritableStore<
 		const roles = this.value.roles;
 		const isOwner = this.value.owner_id === user_id;
 
-		const profileRoles = this.$users
-			.get(user_id)!
-			.profiles.get(this.id)!
-			.value.roles.concat(user_id);
+		// return early
+		if (isOwner) {
+			Object.keys(PermissionFlagsBits).forEach((perm) => {
+				obj[perm as keyof typeof PermissionFlagsBits] = true;
+			});
+
+			return obj;
+		}
+
+		const profileRoles = this.$users.get(user_id)!.profiles.get(this.id)!.value.roles.concat(user_id);
 
 		if (!roles || !profileRoles) throw rej;
 
@@ -254,16 +254,16 @@ export class DiscordGuild extends WritableStore<
 				})
 				.map((o) => o.permissions)
 				.forEach((perms) => {
-					const _perms = JSBI.BigInt(perms);
+					const _perms = BigInteger.BigInt(perms);
 
 					Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
-						if (JSBI.equal(JSBI.bitwiseAnd(num, _perms), num))
+						if (BigInteger.equal(BigInteger.bitwiseAnd(num, _perms), num))
 							obj[perm as keyof typeof PermissionFlagsBits] = true;
 					});
 				});
 		}
 
-		if (obj.Administrator === true || isOwner) {
+		if (obj.Administrator === true) {
 			Object.keys(PermissionFlagsBits).forEach((perm) => {
 				obj[perm as keyof typeof PermissionFlagsBits] = true;
 			});
@@ -284,12 +284,12 @@ export class DiscordGuild extends WritableStore<
 		_overwrites.forEach((o) => {
 			if (profileRoles.includes(o.id)) {
 				Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
-					const _deny = JSBI.BigInt(o.deny);
-					const _allow = JSBI.BigInt(o.allow);
+					const _deny = BigInteger.BigInt(o.deny);
+					const _allow = BigInteger.BigInt(o.allow);
 
-					if (JSBI.equal(JSBI.bitwiseAnd(_deny, num), num))
+					if (BigInteger.equal(BigInteger.bitwiseAnd(_deny, num), num))
 						obj[perm as keyof typeof PermissionFlagsBits] = false;
-					if (JSBI.equal(JSBI.bitwiseAnd(_allow, num), num))
+					if (BigInteger.equal(BigInteger.bitwiseAnd(_allow, num), num))
 						obj[perm as keyof typeof PermissionFlagsBits] = true;
 				});
 			}
@@ -334,10 +334,7 @@ export class DiscordGuild extends WritableStore<
 						type _has = DiscordGuildTextChannel<_channelType>;
 
 						if (!has) {
-							this.channels.set(
-								a.id,
-								new DiscordGuildTextChannel<_channelType>(props, a.type, this, a.id)
-							);
+							this.channels.set(a.id, new DiscordGuildTextChannel<_channelType>(props, a.type, this, a.id));
 						} else {
 							// if new state has array, then use deepEqual comparison
 							if (props.permission_overwrites) (has as _has).setStateDeep(props);

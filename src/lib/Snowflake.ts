@@ -1,35 +1,44 @@
 // taken from https://github.com/sapphiredev/utilities/blob/main/packages/snowflake/src/lib/Snowflake.ts
 // this is what discord.js uses for nonce,  rewritten to work with JSBI
 
-import JSBI from "jsbi";
+import BigInteger from "./bigint/BigInteger";
 
 const IncrementSymbol = Symbol("@sapphire/snowflake.increment");
 const EpochSymbol = Symbol("@sapphire/snowflake.epoch");
 const ProcessIdSymbol = Symbol("@sapphire/snowflake.processId");
 const WorkerIdSymbol = Symbol("@sapphire/snowflake.workerId");
 
-const BigInt = JSBI.BigInt;
-const bitwiseAnd = JSBI.bitwiseAnd;
-const subtract = JSBI.subtract;
-const bitwiseOr = JSBI.bitwiseOr;
-const leftShift = JSBI.leftShift;
-const add = JSBI.add;
-const signedRightShift = JSBI.signedRightShift;
+const BigInt = BigInteger.BigInt;
+const bitwiseAnd = BigInteger.bitwiseAnd;
+const subtract = BigInteger.subtract;
+const bitwiseOr = BigInteger.bitwiseOr;
+const leftShift = BigInteger.leftShift;
+const add = BigInteger.add;
+const signedRightShift = BigInteger.signedRightShift;
 
 /**
  * The maximum value the `workerId` field accepts in snowflakes.
  */
-export const MaximumWorkerId = BigInt("0b11111");
+export const MaximumWorkerId = BigInt(
+	// "0b11111"
+	31
+);
 
 /**
  * The maximum value the `processId` field accepts in snowflakes.
  */
-export const MaximumProcessId = BigInt("0b11111");
+export const MaximumProcessId = BigInt(
+	// "0b11111"
+	31
+);
 
 /**
  * The maximum value the `increment` field accepts in snowflakes.
  */
-export const MaximumIncrement = BigInt("0b111111111111");
+export const MaximumIncrement = BigInt(
+	// "0b111111111111"
+	4095
+);
 
 /**
  * A class for generating and deconstructing Twitter snowflakes.
@@ -55,7 +64,7 @@ export class Snowflake {
 	 * Internal reference of the epoch passed in the constructor
 	 * @internal
 	 */
-	private readonly [EpochSymbol]: JSBI;
+	private readonly [EpochSymbol]: BigInteger;
 
 	/**
 	 * Internal incrementor for generating snowflakes
@@ -78,21 +87,21 @@ export class Snowflake {
 	/**
 	 * @param epoch the epoch to use
 	 */
-	public constructor(epoch: number | JSBI | Date) {
+	public constructor(epoch: number | BigInteger | Date) {
 		this[EpochSymbol] = BigInt(epoch instanceof Date ? epoch.getTime() : epoch);
 	}
 
 	/**
 	 * The epoch for this snowflake
 	 */
-	public get epoch(): JSBI {
+	public get epoch(): BigInteger {
 		return this[EpochSymbol];
 	}
 
 	/**
 	 * Gets the configured process ID
 	 */
-	public get processId(): JSBI {
+	public get processId(): BigInteger {
 		return this[ProcessIdSymbol];
 	}
 
@@ -100,14 +109,14 @@ export class Snowflake {
 	 * Sets the process ID that will be used by default for the {@link generate} method
 	 * @param value The new value, will be coerced to BigInt and masked with `0b11111n`
 	 */
-	public set processId(value: number | JSBI) {
+	public set processId(value: number | BigInteger) {
 		this[ProcessIdSymbol] = bitwiseAnd(BigInt(value), MaximumProcessId);
 	}
 
 	/**
 	 * Gets the configured worker ID
 	 */
-	public get workerId(): JSBI {
+	public get workerId(): BigInteger {
 		return this[WorkerIdSymbol];
 	}
 
@@ -115,7 +124,7 @@ export class Snowflake {
 	 * Sets the worker ID that will be used by default for the {@link generate} method
 	 * @param value The new value, will be coerced to BigInt and masked with `0b11111n`
 	 */
-	public set workerId(value: number | JSBI) {
+	public set workerId(value: number | BigInteger) {
 		this[WorkerIdSymbol] = bitwiseAnd(BigInt(value), MaximumWorkerId);
 	}
 
@@ -139,13 +148,13 @@ export class Snowflake {
 	}: SnowflakeGenerateOptions = {}) {
 		if (timestamp instanceof Date) timestamp = BigInt(timestamp.getTime());
 		else if (typeof timestamp === "number") timestamp = BigInt(timestamp);
-		else if (!(timestamp instanceof JSBI)) {
+		else if (!BigInteger.is(timestamp)) {
 			throw new TypeError(
 				`"timestamp" argument must be a number, bigint, or Date (received ${typeof timestamp})`
 			);
 		}
 
-		if (!(increment instanceof JSBI)) {
+		if (!BigInteger.is(increment)) {
 			increment = this[IncrementSymbol];
 			this[IncrementSymbol] = bitwiseAnd(add(increment, BigInt(1)), MaximumIncrement);
 		}
@@ -179,7 +188,7 @@ export class Snowflake {
 	 * const snowflake = new Snowflake(epoch).deconstruct('3971046231244935168');
 	 * ```
 	 */
-	public deconstruct(id: string | JSBI): DeconstructedSnowflake {
+	public deconstruct(id: string | BigInteger): DeconstructedSnowflake {
 		const bigIntId = BigInt(id);
 		const epoch = this[EpochSymbol];
 		return {
@@ -197,8 +206,8 @@ export class Snowflake {
 	 * @param id The snowflake to get the timestamp value from.
 	 * @returns The UNIX timestamp that is stored in `id`.
 	 */
-	public timestampFrom(id: string | JSBI): number {
-		return JSBI.toNumber(add(signedRightShift(BigInt(id), BigInt(22)), this[EpochSymbol]));
+	public timestampFrom(id: string | BigInteger): number {
+		return BigInteger.toNumber(add(signedRightShift(BigInt(id), BigInt(22)), this[EpochSymbol]));
 	}
 
 	/**
@@ -220,19 +229,19 @@ export class Snowflake {
 	 * // → ['1056191128120082432', '737141877803057244', '254360814063058944'];
 	 * ```
 	 */
-	public static compare(a: string | JSBI, b: string | JSBI): -1 | 0 | 1 {
+	public static compare(a: string | BigInteger, b: string | BigInteger): -1 | 0 | 1 {
 		const typeA = typeof a;
 		return typeA === typeof b
 			? typeA === "string"
 				? cmpString(a as string, b as string)
-				: cmpBigInt(a as JSBI, b as JSBI)
+				: cmpBigInt(a as BigInteger, b as BigInteger)
 			: cmpBigInt(BigInt(a), BigInt(b));
 	}
 }
 
 /** @internal */
-function cmpBigInt(a: JSBI, b: JSBI) {
-	return JSBI.equal(a, b) ? 0 : JSBI.lessThan(a, b) ? -1 : 1;
+function cmpBigInt(a: BigInteger, b: BigInteger) {
+	return BigInteger.equal(a, b) ? 0 : BigInteger.lessThan(a, b) ? -1 : 1;
 }
 
 /** @internal */
@@ -248,26 +257,26 @@ export interface SnowflakeGenerateOptions {
 	 * Timestamp or date of the snowflake to generate
 	 * @default Date.now()
 	 */
-	timestamp?: number | JSBI | Date;
+	timestamp?: number | BigInteger | Date;
 
 	/**
 	 * The increment to use
 	 * @default 0n
 	 * @remark keep in mind that this bigint is auto-incremented between generate calls
 	 */
-	increment?: JSBI;
+	increment?: BigInteger;
 
 	/**
 	 * The worker ID to use, will be truncated to 5 bits (0-31)
 	 * @default 0n
 	 */
-	workerId?: JSBI;
+	workerId?: BigInteger;
 
 	/**
 	 * The process ID to use, will be truncated to 5 bits (0-31)
 	 * @default 1n
 	 */
-	processId?: JSBI;
+	processId?: BigInteger;
 }
 
 /**
@@ -277,32 +286,32 @@ export interface DeconstructedSnowflake {
 	/**
 	 * The id in BigInt form
 	 */
-	id: JSBI;
+	id: BigInteger;
 
 	/**
 	 * The timestamp stored in the snowflake
 	 */
-	timestamp: JSBI;
+	timestamp: BigInteger;
 
 	/**
 	 * The worker id stored in the snowflake
 	 */
-	workerId: JSBI;
+	workerId: BigInteger;
 
 	/**
 	 * The process id stored in the snowflake
 	 */
-	processId: JSBI;
+	processId: BigInteger;
 
 	/**
 	 * The increment stored in the snowflake
 	 */
-	increment: JSBI;
+	increment: BigInteger;
 
 	/**
 	 * The epoch to use in the snowflake
 	 */
-	epoch: JSBI;
+	epoch: BigInteger;
 }
 
 /**
@@ -310,4 +319,4 @@ export interface DeconstructedSnowflake {
  *
  * Which is 2015-01-01 at 00:00:00.000 UTC+0, {@linkplain https://discord.com/developers/docs/reference#snowflakes}
  */
-export const DiscordSnowflake = new Snowflake(BigInt(1420070400000));
+export const DiscordSnowflake = new Snowflake(BigInt("0x14aa2cab000"));

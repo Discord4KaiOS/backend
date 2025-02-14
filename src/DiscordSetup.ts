@@ -180,13 +180,13 @@ create a login error with this name
 
 			try {
 				await req
-					.get("users/@me", {
-						headers: {
-							authorization: props.token,
-						},
-					})
-					.response();
-			} catch {
+						.getFirstChunk("users/@me", {
+							headers: {
+								authorization: props.token,
+							},
+						})
+						.response();
+			} catch (e) {
 				this.result = null;
 				throw new InvalidTokenError();
 			}

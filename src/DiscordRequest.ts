@@ -127,6 +127,58 @@ export class Response<T = any> {
 	}
 }
 
+interface FirstChunkResponse {
+	status: number;
+	bytes: Uint8Array;
+}
+
+class ResponseFirstChunk {
+	response: () => Promise<FirstChunkResponse>;
+
+	constructor(public xhr: XMLHttpRequest) {
+		const deffered = new Deferred<FirstChunkResponse>();
+
+		this.response = () => deffered.promise;
+
+		xhr.onprogress = function () {
+			if (xhr.response) {
+				const chunk = new Uint8Array(xhr.response || 0);
+
+				const result = {
+					bytes: chunk,
+					status: xhr.status,
+				};
+
+				if (xhr.status < 200 || xhr.status >= 300) {
+					deffered.reject(result);
+				} else {
+					deffered.resolve(result);
+				}
+
+				xhr.abort();
+			}
+		};
+
+		xhr.onreadystatechange = function () {
+			if (xhr.readyState > 1) {
+				const byteView = new Uint8Array(xhr.response || 0);
+
+				const result = {
+					bytes: byteView,
+					status: xhr.status,
+				};
+
+				if (xhr.status < 200 || xhr.status >= 300) {
+					deffered.reject(result);
+				} else {
+					deffered.resolve(result);
+				}
+				xhr.abort(); // Stop further loading
+			}
+		};
+	}
+}
+
 export class ResponsePost<T> extends EventEmitter<{
 	progress: [ProgressEvent];
 }> {
@@ -143,8 +195,6 @@ export class ResponsePost<T> extends EventEmitter<{
 		if (xhr.upload) xhr.upload.onprogress = this.emit.bind(this, "progress");
 	}
 }
-
-URLSearchParams;
 
 interface RequestProps {
 	headers?: Record<string, string | null | undefined>;
@@ -207,7 +257,25 @@ export default class DiscordRequest {
 	put!: <T = any>(url: string, props: RequestProps) => Response<T>;
 	delete!: <T = any>(url: string, props: RequestProps) => Response<T>;
 
-	request<T = any>(method: string, url: string, props: RequestProps) {
+	/**
+	 * this sends a get request and aborts it as soon as we get a response
+	 * response() will be the status code
+	 */
+	getFirstChunk(url: string, props: Omit<RequestProps, "responseType">) {
+		const isKai2 = !!(import.meta.env.KAIOS != 3 && navigator.mozApps);
+		const [xhr, body] = this.createXHR("GET", url, {
+			...props,
+			responseType: isKai2 ? ("moz-chunked-arraybuffer" as any) : "arraybuffer",
+		});
+
+		const resp = new ResponseFirstChunk(xhr);
+
+		xhr.send(body);
+
+		return resp;
+	}
+
+	private createXHR(method: string, url: string, props: RequestProps) {
 		// @ts-ignore: this should work, I have no idea why it's not working
 		const xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
 
@@ -248,23 +316,28 @@ export default class DiscordRequest {
 		let body: string | FormData | Blob | undefined;
 
 		if (props.data) {
-			if (
-				typeof props.data === "string" ||
-				props.data instanceof Blob ||
-				props.data instanceof FormData
-			) {
+			if (typeof props.data === "string" || props.data instanceof Blob || props.data instanceof FormData) {
 				body = props.data;
 			} else {
 				body = JSON.stringify(props.data);
 			}
 		}
 
-		xhr.send(body);
-		return new Response<T>(xhr, {
+		return [xhr, body] as const;
+	}
+
+	request<T = any>(method: string, url: string, props: RequestProps) {
+		const [xhr, body] = this.createXHR(method, url, props);
+
+		const resp = new Response<T>(xhr, {
 			self: this,
 			method,
 			url,
 			props,
 		});
+
+		xhr.send(body);
+
+		return resp;
 	}
 }

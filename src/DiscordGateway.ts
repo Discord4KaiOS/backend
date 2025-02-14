@@ -212,6 +212,7 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 				break;
 			case GatewayOPCodes.Reconnect:
 				// TODO: We could probably just reconnect according to the discord docs, but eh
+				alert("You got disconnected!");
 				this.close();
 				break;
 			default:
