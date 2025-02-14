@@ -8,7 +8,7 @@ import Logger from "./Logger";
 import Gateway from "./DiscordGateway";
 import BigInteger from "./lib/bigint/BigInteger";
 
-export const PermissionFlagsBits = {
+export const PermissionFlagsBits = Object.freeze({
 	CreateInstantInvite: BigInteger.BigInt(1),
 	KickMembers: BigInteger.BigInt(2),
 	BanMembers: BigInteger.BigInt(4),
@@ -37,29 +37,29 @@ export const PermissionFlagsBits = {
 	UseVAD: BigInteger.BigInt(33554432),
 	ChangeNickname: BigInteger.BigInt(67108864),
 	ManageNicknames: BigInteger.BigInt(134217728),
-	ManageRoles: BigInteger.BigInt(268435456),
-	ManageWebhooks: BigInteger.BigInt(536870912),
-	ManageEmojisAndStickers: BigInteger.BigInt(1073741824),
-	ManageGuildExpressions: BigInteger.BigInt(1073741824),
-	UseApplicationCommands: BigInteger.BigInt(2147483648),
-	RequestToSpeak: BigInteger.BigInt(4294967296),
-	ManageEvents: BigInteger.BigInt(8589934592),
-	ManageThreads: BigInteger.BigInt(17179869184),
-	CreatePublicThreads: BigInteger.BigInt(34359738368),
-	CreatePrivateThreads: BigInteger.BigInt(68719476736),
-	UseExternalStickers: BigInteger.BigInt(137438953472),
-	SendMessagesInThreads: BigInteger.BigInt(274877906944),
-	UseEmbeddedActivities: BigInteger.BigInt(549755813888),
-	ModerateMembers: BigInteger.BigInt(1099511627776),
-	ViewCreatorMonetizationAnalytics: BigInteger.BigInt(2199023255552),
-	UseSoundboard: BigInteger.BigInt(4398046511104),
-	CreateGuildExpressions: BigInteger.BigInt(8796093022208),
-	CreateEvents: BigInteger.BigInt(17592186044416),
-	UseExternalSounds: BigInteger.BigInt(35184372088832),
-	SendVoiceMessages: BigInteger.BigInt(70368744177664),
-	SendPolls: BigInteger.BigInt(562949953421312),
-	UseExternalApps: BigInteger.BigInt(1125899906842624),
-} as const;
+	ManageRoles: BigInteger.BigInt("0x10000000"),
+	ManageWebhooks: BigInteger.BigInt("0x20000000"),
+	ManageEmojisAndStickers: BigInteger.BigInt("0x40000000"),
+	ManageGuildExpressions: BigInteger.BigInt("0x40000000"),
+	UseApplicationCommands: BigInteger.BigInt("0x80000000"),
+	RequestToSpeak: BigInteger.BigInt("0x100000000"),
+	ManageEvents: BigInteger.BigInt("0x200000000"),
+	ManageThreads: BigInteger.BigInt("0x400000000"),
+	CreatePublicThreads: BigInteger.BigInt("0x800000000"),
+	CreatePrivateThreads: BigInteger.BigInt("0x1000000000"),
+	UseExternalStickers: BigInteger.BigInt("0x2000000000"),
+	SendMessagesInThreads: BigInteger.BigInt("0x4000000000"),
+	UseEmbeddedActivities: BigInteger.BigInt("0x8000000000"),
+	ModerateMembers: BigInteger.BigInt("0x10000000000"),
+	ViewCreatorMonetizationAnalytics: BigInteger.BigInt("0x20000000000"),
+	UseSoundboard: BigInteger.BigInt("0x40000000000"),
+	CreateGuildExpressions: BigInteger.BigInt("0x80000000000"),
+	CreateEvents: BigInteger.BigInt("0x100000000000"),
+	UseExternalSounds: BigInteger.BigInt("0x200000000000"),
+	SendVoiceMessages: BigInteger.BigInt("0x400000000000"),
+	SendPolls: BigInteger.BigInt("0x2000000000000"),
+	UseExternalApps: BigInteger.BigInt("0x4000000000000"),
+});
 
 export class DiscordServerProfile extends WritableStore<
 	Pick<
