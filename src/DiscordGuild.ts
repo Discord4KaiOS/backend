@@ -257,8 +257,7 @@ export class DiscordGuild extends WritableStore<
 					const _perms = BigInteger.BigInt(perms);
 
 					Object.entries(PermissionFlagsBits).forEach(([perm, num]) => {
-						if (BigInteger.equal(BigInteger.bitwiseAnd(num, _perms), num))
-							obj[perm as keyof typeof PermissionFlagsBits] = true;
+						if (BigInteger.notEqual(BigInteger.bitwiseAnd(num, _perms), BigInteger.BigInt(0))) obj[perm as keyof typeof PermissionFlagsBits] = true;
 					});
 				});
 		}
@@ -287,10 +286,8 @@ export class DiscordGuild extends WritableStore<
 					const _deny = BigInteger.BigInt(o.deny);
 					const _allow = BigInteger.BigInt(o.allow);
 
-					if (BigInteger.equal(BigInteger.bitwiseAnd(_deny, num), num))
-						obj[perm as keyof typeof PermissionFlagsBits] = false;
-					if (BigInteger.equal(BigInteger.bitwiseAnd(_allow, num), num))
-						obj[perm as keyof typeof PermissionFlagsBits] = true;
+					if (BigInteger.notEqual(BigInteger.bitwiseAnd(_deny, num), BigInteger.BigInt(0))) obj[perm as keyof typeof PermissionFlagsBits] = false;
+					if (BigInteger.notEqual(BigInteger.bitwiseAnd(_allow, num), BigInteger.BigInt(0))) obj[perm as keyof typeof PermissionFlagsBits] = true;
 				});
 			}
 		});

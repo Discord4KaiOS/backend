@@ -293,9 +293,7 @@ export class DiscordMessageReactionsJar extends Jar<MessageReaction> {
 	}
 }
 
-export class DiscordMessage<
-	T extends DiscordTextChannelProps = DiscordTextChannelProps
-> extends WritableStore<Pick<APIMessage, "content" | "pinned" | "edited_timestamp">> {
+export class DiscordMessage<T extends DiscordTextChannelProps = DiscordTextChannelProps> extends WritableStore<Pick<APIMessage, "content" | "pinned" | "edited_timestamp">> {
 	get [Symbol.toStringTag || Symbol()]() {
 		return "DiscordMessage";
 	}
@@ -316,15 +314,12 @@ export class DiscordMessage<
 	reference?: APIMessageReference;
 	id: string;
 	user_id: string;
+	forwarded = false;
+	forwarded_content = "";
 
 	reactions: DiscordMessageReactionsJar;
 
-	constructor(
-		public $: APIMessage,
-		public author: DiscordUser,
-		public $channel: DiscordTextChannel<T>,
-		public $guild: DiscordGuild | null = null
-	) {
+	constructor(public $: APIMessage, public author: DiscordUser, public $channel: DiscordTextChannel<T>, public $guild: DiscordGuild | null = null) {
 		super({
 			content: $.content,
 			edited_timestamp: $.edited_timestamp,
@@ -336,6 +331,20 @@ export class DiscordMessage<
 		this.attachments.set($.attachments);
 		this.stickers.set($.sticker_items);
 		this.reference = $.message_reference;
+
+		// dirty hack I guess?
+		// currently forwarding messages don't really have any embeds or content
+		if ($.flags && this.$.message_snapshots?.[0]) {
+			// 1 << 14 HAS_SNAPSHOT
+			this.forwarded = !!($.flags & (1 << 14));
+			if (this.forwarded) {
+				const snapshot = this.$.message_snapshots[0].message;
+				this.embeds.set(snapshot.embeds);
+				this.attachments.set(snapshot.attachments);
+				this.stickers.set(snapshot.sticker_items);
+				this.setState({ content: (this.forwarded_content = snapshot.content) });
+			}
+		}
 
 		this.user_id = $channel.Request.config.user_id!;
 
@@ -370,10 +379,7 @@ export class DiscordMessage<
 	}
 
 	pin(put = true) {
-		return this.$channel.Request[put ? "put" : "delete"](
-			`channels/${this.$channel.id}/pins/${this.id}`,
-			{}
-		);
+		return this.$channel.Request[put ? "put" : "delete"](`channels/${this.$channel.id}/pins/${this.id}`, {});
 	}
 
 	unpin(put = false) {
@@ -405,7 +411,7 @@ export class DiscordMessage<
 
 	isEditable() {
 		// you can't edit voice messages
-		if (this.$.flags == 8192) return false;
+		if (this.$.flags && this.$.flags & 8192) return false;
 		if ([0, 19].includes(this.$.type) && this.user_id == this.author.id)
 			// default message type or reply, you can only edit your own messages
 			return true;
@@ -461,9 +467,7 @@ export class DiscordMessage<
 
 		const { mention_everyone, mentions, mention_roles } = this.$;
 
-		const initialResult = Boolean(
-			mention_everyone || (userID != this.author.id && mentions?.find((a) => a.id == userID))
-		);
+		const initialResult = Boolean(mention_everyone || (userID != this.author.id && mentions?.find((a) => a.id == userID)));
 
 		if (initialResult) return true;
 
