@@ -32,6 +32,8 @@ import {
 import { createInflateInstance } from "./lib/wrapped";
 import * as Comlink from "comlink";
 
+import { v4 as uuidv4 } from "uuid";
+
 const enum GatewayOPCodes {
 	Dispatch = 0,
 	Heartbeat = 1,
@@ -78,15 +80,9 @@ interface ChannelUnreadUpdateEvent {
 	guild_id: string;
 }
 
-type GatewayEventsUnion = Record<
-	"t:relationship_update" | "t:relationship_add" | "t:relationship_remove",
-	[ClientRelationship]
-> &
+type GatewayEventsUnion = Record<"t:relationship_update" | "t:relationship_add" | "t:relationship_remove", [ClientRelationship]> &
 	Record<"t:channel_create" | "t:channel_update" | "t:channel_delete", [APIChannel]> &
-	Record<
-		"t:channel_recipient_add" | "t:channel_recipient_remove",
-		[{ channel_id: Snowflake; user: ClientAPIUser }]
-	>;
+	Record<"t:channel_recipient_add" | "t:channel_recipient_remove", [{ channel_id: Snowflake; user: ClientAPIUser }]>;
 
 /**
  * undocumented
@@ -151,22 +147,24 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 }
 
 export const SuperProperties = {
-	os: "Android",
-	browser: "Chrome",
+	os: "Linux",
+	browser: "Firefox",
 	device: "",
-	system_locale: "en-US",
-	browser_user_agent:
-		"Mozilla/5.0 (Linux; Android 8.0.0; SM-G955U Build/R16NW) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36",
-	browser_version: "116.0.0.0",
-	os_version: "8.0.0",
+	system_locale: navigator.language,
+	has_client_mods: false,
+	browser_user_agent: "Mozilla/5.0 (X11; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0",
+	browser_version: "138.0",
+	os_version: "",
 	referrer: "",
 	referring_domain: "",
 	referrer_current: "",
 	referring_domain_current: "",
 	release_channel: "stable",
-	client_build_number: 307392,
+	client_build_number: 407093,
 	client_event_source: null,
-	design_id: 0,
+	client_launch_id: uuidv4(),
+	client_heartbeat_session_id: Boolean(Math.floor(Math.random() * 2)) ? undefined : uuidv4(),
+	client_app_state: "unfocused",
 };
 
 export default class Gateway extends EventEmitter<GatewayEventsMap> {
@@ -259,24 +257,17 @@ export default class Gateway extends EventEmitter<GatewayEventsMap> {
 						op: 2,
 						d: {
 							token: this.token,
-							capabilities: 16381,
-							properties: SuperProperties,
-							presence: {
-								status: "unknown",
-								since: 0,
-								activities: [],
-								afk: false,
+							capabilities: 161789,
+							properties: {
+								...SuperProperties,
+								is_fast_connect: false,
+								latest_headless_tasks: [],
+								latest_headless_task_run_seconds_before: null,
+								gateway_connect_reasons: "AppSkeleton",
 							},
+							presence: { status: "unknown", since: 0, activities: [], afk: false },
 							compress: false,
-							client_state: {
-								guild_versions: {},
-								highest_last_message_id: "0",
-								read_state_version: 0,
-								user_guild_settings_version: -1,
-								user_settings_version: -1,
-								private_channels_version: "0",
-								api_code_version: 0,
-							},
+							client_state: { guild_versions: {} },
 						},
 				  }
 		);

@@ -291,12 +291,13 @@ export default class DiscordRequest {
 
 		const headers = {
 			"Content-Type": "application/json",
-			authorization: this.token || null,
+			Authorization: this.token || null,
 			// seems like mozAnon doesn't work on KaiOS v3
 			Origin: "https://discord.com",
 			"User-Agent": SuperProperties.browser_user_agent,
 			Referer: "https://discord.com",
 			"X-Debug-Options": "bugReporterEnabled",
+			"X-Discord-Locale": navigator.language,
 			"X-Super-Properties": this.superProperties,
 		};
 
