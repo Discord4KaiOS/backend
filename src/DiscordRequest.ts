@@ -3,6 +3,7 @@ import { DiscordSetup, CaptchaEvent } from "./DiscordSetup";
 import { Config } from "./config";
 import Deferred from "./lib/Deffered";
 import EventEmitter from "./lib/EventEmitter";
+import moment from "moment-timezone";
 
 export class ResponseError extends Error {
 	code?: number;
@@ -229,10 +230,14 @@ function fullURL(path = "/") {
 
 const _string_superProperties = btoa(JSON.stringify(SuperProperties));
 
+const acceptLanguageHeader = navigator.languages.map((lang, i) => `${lang}${i === 0 ? "" : `;q=${(1 - i * 0.1).toFixed(1)}`}`).join(",");
+
 export default class DiscordRequest {
 	token: string | undefined;
 	superProperties: string;
 	setup: DiscordSetup | undefined;
+
+	private timeZone: string;
 
 	constructor(public config: Config) {
 		this.token = config.token;
@@ -246,6 +251,7 @@ export default class DiscordRequest {
 		this.delete = this.request.bind(this, "delete");
 
 		this.superProperties = _string_superProperties;
+		this.timeZone = moment.tz.guess();
 	}
 
 	post<T = any>(url: string, props: RequestProps) {
@@ -277,7 +283,7 @@ export default class DiscordRequest {
 
 	private createXHR(method: string, url: string, props: RequestProps) {
 		// @ts-ignore: this should work, I have no idea why it's not working
-		const xhr = new XMLHttpRequest({ mozAnon: true, mozSystem: true });
+		const xhr = new XMLHttpRequest();
 
 		const _url = new URL(fullURL(url));
 
@@ -289,6 +295,8 @@ export default class DiscordRequest {
 
 		xhr.open(method.toUpperCase(), mergedURL, true);
 
+		xhr.withCredentials = true;
+
 		const headers = {
 			"Content-Type": "application/json",
 			Authorization: this.token || null,
@@ -299,6 +307,17 @@ export default class DiscordRequest {
 			"X-Debug-Options": "bugReporterEnabled",
 			"X-Discord-Locale": navigator.language,
 			"X-Super-Properties": this.superProperties,
+			"X-Discord-Timezone": this.timeZone,
+			TE: "trailers",
+			Pragma: "no-cache",
+			"Cache-Control": "no-cache",
+			"Sec-Fetch-Dest": "empty",
+			"Sec-Fetch-Mode": "cors",
+			"Sec-Fetch-Site": "same-origin",
+			Connection: "keep-alive",
+			Accept: "*/*",
+			"Accept-Language": acceptLanguageHeader,
+			"Accept-Encoding": "gzip, deflate, br, zstd",
 		};
 
 		if (props.headers) {

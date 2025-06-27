@@ -19,16 +19,7 @@ import type {
 import Logger from "./Logger";
 import EventEmitter from "./lib/EventEmitter";
 
-import {
-	APIChannel,
-	ClientAPIGuildMember,
-	ClientAPIUser,
-	ClientReadState,
-	ClientRelationship,
-	ReadyEvent,
-	ReadySupplementalEvent,
-	Snowflake,
-} from "./lib/types";
+import { APIChannel, ClientAPIGuildMember, ClientAPIUser, ClientReadState, ClientRelationship, ReadyEvent, ReadySupplementalEvent, Snowflake } from "./lib/types";
 import { createInflateInstance } from "./lib/wrapped";
 import * as Comlink from "comlink";
 
@@ -146,25 +137,102 @@ interface GatewayEventsMap extends GatewayEventsUnion {
 	[x: symbol]: any[];
 }
 
+interface KoriProperties {
+	browser_user_agent: string;
+	browser_version: string;
+	client_build_number: number;
+}
+
+const DEFAULT_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0";
+const DEFAULT_BROWSER_VERSION = "140.0";
+const DEFAULT_CLIENT_BUILD_NUMBER = 413685;
+
+async function getLatestFirefoxUserAgent() {
+	// take useragent from here
+	const resp = await fetch("https://jnrbsn.github.io/user-agents/user-agents.json");
+	const json = await resp.json();
+	const ua: string = json[11];
+
+	return {
+		browser_user_agent: ua,
+		browser_version: ua.match(/Firefox\/([\d.]+)/)![1],
+	};
+}
+
+async function getLatestDiscordBuildNumber(): Promise<KoriProperties> {
+	const requestUserAgent = await getLatestFirefoxUserAgent().catch(() => null);
+	const userAgent = requestUserAgent ? requestUserAgent.browser_user_agent : DEFAULT_USER_AGENT;
+	const browserVersion = requestUserAgent ? requestUserAgent.browser_version : DEFAULT_BROWSER_VERSION;
+
+	return new Promise((res) => {
+		const xhr = new XMLHttpRequest();
+
+		xhr.open("GET", "https://discord.com/app");
+		xhr.setRequestHeader("User-Agent", userAgent);
+
+		xhr.withCredentials = true;
+
+		xhr.onload = () => {
+			let client_build_number = DEFAULT_CLIENT_BUILD_NUMBER;
+
+			// console.error("DISCORD HTML CONTENT", xhr.responseText);
+
+			const match = xhr.responseText.match(/"BUILD_NUMBER":"(\d+)"/);
+			if (match) {
+				const buildNumber = match[1];
+				client_build_number = Number(buildNumber);
+			}
+
+			res({ browser_user_agent: userAgent, browser_version: browserVersion, client_build_number });
+		};
+
+		xhr.send();
+	});
+}
+
+async function getLatestProperties() {
+	const properties = await getLatestDiscordBuildNumber();
+	localStorage.setItem("kori_properties", JSON.stringify(properties));
+	// console.info("LATEST DISCORD PROPERTIES:", properties);
+	return properties;
+}
+
+function getProperties(): KoriProperties {
+	const defaultProperties = {
+		browser_user_agent: DEFAULT_USER_AGENT,
+		browser_version: DEFAULT_BROWSER_VERSION,
+		client_build_number: DEFAULT_CLIENT_BUILD_NUMBER,
+	};
+
+	getLatestProperties();
+
+	if (typeof localStorage != "undefined") {
+		const fromStorage = localStorage.getItem("kori_properties");
+		if (!fromStorage) return defaultProperties;
+		return JSON.parse(fromStorage);
+	}
+	return defaultProperties;
+}
+
+const properties = getProperties();
+
 export const SuperProperties = {
 	os: "Linux",
 	browser: "Firefox",
 	device: "",
 	system_locale: navigator.language,
 	has_client_mods: false,
-	browser_user_agent: "Mozilla/5.0 (X11; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0",
-	browser_version: "138.0",
 	os_version: "",
 	referrer: "",
 	referring_domain: "",
 	referrer_current: "",
 	referring_domain_current: "",
 	release_channel: "stable",
-	client_build_number: 407093,
 	client_event_source: null,
 	client_launch_id: uuidv4(),
 	client_heartbeat_session_id: Boolean(Math.floor(Math.random() * 2)) ? undefined : uuidv4(),
 	client_app_state: "unfocused",
+	...properties,
 };
 
 export default class Gateway extends EventEmitter<GatewayEventsMap> {

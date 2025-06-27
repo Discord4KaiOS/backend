@@ -145,7 +145,7 @@ create a login error with this name
 	 * - `"X-Discord-Locale": "en-US"`
 	 * - `"X-Discord-Timezone": "Asia/Manila"`
 	 */
-	headers: Record<string, string> = {};
+	// headers: Record<string, string> = {};
 
 	fingerprint = "";
 
@@ -180,12 +180,12 @@ create a login error with this name
 
 			try {
 				await req
-						.getFirstChunk("users/@me", {
-							headers: {
-								authorization: props.token,
-							},
-						})
-						.response();
+					.getFirstChunk("users/@me", {
+						headers: {
+							authorization: props.token,
+						},
+					})
+					.response();
 			} catch (e) {
 				this.result = null;
 				throw new InvalidTokenError();
@@ -218,7 +218,6 @@ create a login error with this name
 				headers: {
 					"X-Context-Properties": "eyJsb2NhdGlvbiI6IkxvZ2luIn0=", // base64 of '{"location":"Login"}' ,
 					...fingerprintHeaders,
-					...this.headers,
 				},
 			});
 
@@ -238,7 +237,6 @@ create a login error with this name
 			headers: {
 				"X-Fingerprint": this.fingerprint,
 				...fingerprintHeaders,
-				...this.headers,
 			},
 		});
 
