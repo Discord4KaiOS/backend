@@ -170,7 +170,10 @@ async function getLatestDiscordBuildNumber(): Promise<KoriProperties> {
 		xhr.open("GET", "https://discord.com/app");
 		xhr.setRequestHeader("User-Agent", userAgent);
 
-		xhr.withCredentials = true;
+		// this causes an error on KaiOS 3.0 :(
+		try {
+			xhr.withCredentials = true;
+		} catch {}
 
 		xhr.onload = () => {
 			let client_build_number = DEFAULT_CLIENT_BUILD_NUMBER;

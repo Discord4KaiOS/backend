@@ -295,7 +295,10 @@ export default class DiscordRequest {
 
 		xhr.open(method.toUpperCase(), mergedURL, true);
 
-		xhr.withCredentials = true;
+		// this causes an error on KaiOS 3.0 :(
+		try {
+			xhr.withCredentials = true;
+		} catch {}
 
 		const headers = {
 			"Content-Type": "application/json",
