@@ -168,7 +168,10 @@ async function getLatestDiscordBuildNumber(): Promise<KoriProperties> {
 		const xhr = new XMLHttpRequest();
 
 		xhr.open("GET", "https://discord.com/app");
-		xhr.setRequestHeader("User-Agent", userAgent);
+
+		// we don't set user-agent when dev mode
+		// for some reason my cors bypass extension aint working lol
+		if (!import.meta.env.DEV) xhr.setRequestHeader("User-Agent", userAgent);
 
 		// this causes an error on KaiOS 3.0 :(
 		try {
