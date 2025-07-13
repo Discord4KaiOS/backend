@@ -236,7 +236,7 @@ export const SuperProperties = {
 	client_heartbeat_session_id: Boolean(Math.floor(Math.random() * 2)) ? undefined : uuidv4(),
 	client_app_state: "unfocused",
 	...properties,
-};
+} as const;
 
 export default class Gateway extends EventEmitter<GatewayEventsMap> {
 	private token?: string;

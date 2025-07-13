@@ -239,6 +239,10 @@ export default class DiscordRequest {
 
 	private timeZone: string;
 
+	static get SuperProperties() {
+		return SuperProperties;
+	}
+
 	constructor(public config: Config) {
 		this.token = config.token;
 		// @ts-ignore: should work
